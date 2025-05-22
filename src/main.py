@@ -23,13 +23,20 @@ app = Flask(__name__)
 database_url = os.getenv('DATABASE_URL')
 logger.info(f"DATABASE_URL: {database_url[:20] if database_url else 'No configurado'}")
 
-if database_url and database_url.startswith('postgres://'):
-    # Render usa postgres:// pero SQLAlchemy requiere postgresql://
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+# Intentar usar la configuración que funcionaba antes
+if not database_url:
+    # Configuración directa para PostgreSQL en Render (sin usar variable de entorno)
+    database_url = "postgresql://postgres:postgres@postgres:5432/postgres"
+    logger.info("Usando configuración directa para PostgreSQL en Render")
+
+if database_url:
+    # Si es una URL de postgres, convertirla al formato que SQLAlchemy necesita
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    logger.info(f"Usando PostgreSQL en Render: {database_url[:20]}...")
+    logger.info(f"Usando base de datos externa: {database_url[:20]}...")
 else:
-    # Fallback a SQLite solo si no hay DATABASE_URL
+    # Fallback a SQLite solo como último recurso
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
     os.makedirs(data_dir, exist_ok=True)
     sqlite_path = os.path.join(data_dir, 'alquileres.db')
