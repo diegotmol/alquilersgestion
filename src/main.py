@@ -20,28 +20,16 @@ from src.models.database import db
 app = Flask(__name__)
 
 # Configuración de la base de datos
-database_url = os.getenv('DATABASE_URL')
-logger.info(f"DATABASE_URL: {database_url[:20] if database_url else 'No configurado'}")
+# Usar la cadena de conexión específica si DATABASE_URL no está configurada
+database_url = os.getenv('DATABASE_URL', 'postgresql://gestion_pagos_user:ZMF1bPMxnsp52UvNPF37sMMY1pLoIwqT@dpg-d0n2s9re5dus73auvbhg-a/gestion_pagos')
+logger.info(f"DATABASE_URL configurada: {database_url[:20]}...")
 
-# Intentar usar la configuración que funcionaba antes
-if not database_url:
-    # Configuración directa para PostgreSQL en Render (sin usar variable de entorno)
-    database_url = "postgresql://postgres:postgres@postgres:5432/postgres"
-    logger.info("Usando configuración directa para PostgreSQL en Render")
+# Si es una URL de postgres, convertirla al formato que SQLAlchemy necesita
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-if database_url:
-    # Si es una URL de postgres, convertirla al formato que SQLAlchemy necesita
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    logger.info(f"Usando base de datos externa: {database_url[:20]}...")
-else:
-    # Fallback a SQLite solo como último recurso
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-    os.makedirs(data_dir, exist_ok=True)
-    sqlite_path = os.path.join(data_dir, 'alquileres.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{sqlite_path}'
-    logger.warning(f"¡ATENCIÓN! Usando SQLite local en: {sqlite_path} - Esto puede causar problemas de sincronización")
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+logger.info(f"Usando base de datos: {database_url[:20]}...")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-por-defecto')
