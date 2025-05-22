@@ -20,20 +20,21 @@ from src.models.database import db
 app = Flask(__name__)
 
 # Configuración de la base de datos
-database_url = os.getenv('DATABASE_URL', None)
-if database_url:
+database_url = os.getenv('DATABASE_URL')
+logger.info(f"DATABASE_URL: {database_url[:20] if database_url else 'No configurado'}")
+
+if database_url and database_url.startswith('postgres://'):
     # Render usa postgres:// pero SQLAlchemy requiere postgresql://
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    logger.info(f"Usando base de datos externa: {database_url[:15]}...")
+    logger.info(f"Usando PostgreSQL en Render: {database_url[:20]}...")
 else:
-    # Asegurarse de que la carpeta data exista
+    # Fallback a SQLite solo si no hay DATABASE_URL
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
     os.makedirs(data_dir, exist_ok=True)
     sqlite_path = os.path.join(data_dir, 'alquileres.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{sqlite_path}'
-    logger.info(f"Usando SQLite local en: {sqlite_path}")
+    logger.warning(f"¡ATENCIÓN! Usando SQLite local en: {sqlite_path} - Esto puede causar problemas de sincronización")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-por-defecto')
@@ -107,6 +108,35 @@ def handle_exception(e):
                 "error": str(e),
                 "mensaje": "Error interno del servidor al servir la página principal"
             }), 500
+
+# Ruta de diagnóstico para verificar la conexión a la base de datos
+@app.route('/api/diagnostico/db', methods=['GET'])
+def diagnostico_db():
+    try:
+        # Intentar ejecutar una consulta simple
+        with app.app_context():
+            result = db.session.execute("SELECT 1").fetchone()
+        
+        # Obtener información sobre la conexión
+        engine = db.engine
+        url = str(engine.url)
+        # Ocultar credenciales en la URL
+        if '@' in url:
+            url = url.split('@')[1]
+        
+        return jsonify({
+            "status": "ok",
+            "mensaje": "Conexión a la base de datos exitosa",
+            "tipo_db": engine.name,
+            "url": url,
+            "test_query": "SELECT 1 = " + str(result[0])
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "mensaje": f"Error al conectar con la base de datos: {str(e)}",
+            "db_url": app.config['SQLALCHEMY_DATABASE_URI'][:20] + "..."
+        }), 500
 
 # Crear las tablas si no existen
 with app.app_context():
