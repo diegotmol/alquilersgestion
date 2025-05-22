@@ -40,7 +40,14 @@ class GmailServiceReal:
             if not os.path.exists(self.client_secrets_file):
                 raise FileNotFoundError(f"El archivo {self.client_secrets_file} no existe")
             
-            # Cambiar esto
+            # Leer el archivo para verificar que es un JSON válido
+            try:
+                with open(self.client_secrets_file, 'r') as f:
+                    json.load(f)
+            except json.JSONDecodeError:
+                raise ValueError(f"El archivo {self.client_secrets_file} no es un JSON válido")
+            
+            # Generar la URL de autorización
             flow = Flow.from_client_secrets_file(
                 self.client_secrets_file,
                 scopes=self.scopes,
@@ -59,135 +66,5 @@ class GmailServiceReal:
         except Exception as e:
             # Registrar el error
             logger.error(f"Error al generar URL de autorización: {str(e)}")
-            # Re-lanzar la excepción para que sea manejada por el controlador
-            raise
-    
-    def get_token(self, code):
-        """
-        Obtiene el token de acceso a partir del código de autorización.
-        
-        Args:
-            code (str): Código de autorización obtenido de Google
-            
-        Returns:
-            dict: Credenciales de acceso
-            
-        Raises:
-            Exception: Si hay un error al obtener el token
-        """
-        try:
-            # Verificar que el archivo existe
-            if not os.path.exists(self.client_secrets_file):
-                raise FileNotFoundError(f"El archivo {self.client_secrets_file} no existe")
-                
-            # Validar que el código no esté vacío
-            if not code:
-                raise ValueError("El código de autorización está vacío")
-            
-            # Cambiar esto también
-            flow = Flow.from_client_secrets_file(
-                self.client_secrets_file,
-                scopes=self.scopes,
-                redirect_uri=self.redirect_uri
-            )
-            
-            # Intercambiar el código por un token
-            flow.fetch_token(code=code)
-            
-            # Guardar las credenciales
-            credentials = flow.credentials
-            
-            credentials_dict = {
-                'token': credentials.token,
-                'refresh_token': credentials.refresh_token,
-                'token_uri': credentials.token_uri,
-                'client_id': credentials.client_id,
-                'client_secret': credentials.client_secret,
-                'scopes': credentials.scopes
-            }
-            
-            logger.info("Token obtenido correctamente")
-            return credentials_dict
-            
-        except Exception as e:
-            # Registrar el error
-            logger.error(f"Error al obtener token: {str(e)}")
-            # Re-lanzar la excepción para que sea manejada por el controlador
-            raise
-    
-    def get_emails(self, credentials_dict, query="from:serviciodetransferencias@bancochile.cl", max_results=10):
-        """
-        Obtiene los correos electrónicos que coinciden con la consulta.
-        
-        Args:
-            credentials_dict (dict): Credenciales de acceso
-            query (str, optional): Consulta para filtrar correos. Por defecto "from:serviciodetransferencias@bancochile.cl"
-            max_results (int, optional): Número máximo de resultados. Por defecto 10
-            
-        Returns:
-            list: Lista de correos electrónicos
-            
-        Raises:
-            Exception: Si hay un error al obtener los correos
-        """
-        try:
-            # Validar que las credenciales no estén vacías
-            if not credentials_dict:
-                raise ValueError("Las credenciales están vacías")
-            
-            # Crear objeto Credentials
-            credentials = Credentials(
-                token=credentials_dict['token'],
-                refresh_token=credentials_dict['refresh_token'],
-                token_uri=credentials_dict['token_uri'],
-                client_id=credentials_dict['client_id'],
-                client_secret=credentials_dict['client_secret'],
-                scopes=credentials_dict['scopes']
-            )
-            
-            # Construir el servicio de Gmail
-            service = build('gmail', 'v1', credentials=credentials)
-            
-            # Buscar mensajes que coincidan con la consulta
-            results = service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()
-            messages = results.get('messages', [])
-            
-            logger.info(f"Se encontraron {len(messages)} mensajes que coinciden con la consulta")
-            
-            emails = []
-            for message in messages:
-                msg = service.users().messages().get(userId='me', id=message['id'], format='full').execute()
-                
-                # Extraer información del correo
-                headers = msg['payload']['headers']
-                subject = next((header['value'] for header in headers if header['name'] == 'Subject'), '')
-                from_email = next((header['value'] for header in headers if header['name'] == 'From'), '')
-                date = next((header['value'] for header in headers if header['name'] == 'Date'), '')
-                
-                # Extraer el cuerpo del mensaje
-                body = ''
-                if 'parts' in msg['payload']:
-                    for part in msg['payload']['parts']:
-                        if part['mimeType'] == 'text/html':
-                            body = part['body']['data']
-                            break
-                        elif part['mimeType'] == 'text/plain':
-                            body = part['body']['data']
-                elif 'body' in msg['payload'] and 'data' in msg['payload']['body']:
-                    body = msg['payload']['body']['data']
-                
-                emails.append({
-                    'id': message['id'],
-                    'subject': subject,
-                    'from': from_email,
-                    'date': date,
-                    'body': body
-                })
-            
-            return emails
-            
-        except Exception as e:
-            # Registrar el error
-            logger.error(f"Error al obtener correos: {str(e)}")
             # Re-lanzar la excepción para que sea manejada por el controlador
             raise
