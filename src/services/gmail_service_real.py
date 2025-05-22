@@ -16,14 +16,16 @@ logger = logging.getLogger(__name__)
 
 class GmailServiceReal:
     def __init__(self):
-        # Ruta al archivo client_secret.json
-        self.client_secrets_file = "client_secret.json"
+        # Ruta al archivo client_secret.json - usar ruta absoluta
+        self.client_secrets_file = os.path.join(os.getcwd(), "client_secret.json")
         self.redirect_uri = "https://gestion-pagos-alquileres.onrender.com/callback"
         self.scopes = ['https://www.googleapis.com/auth/gmail.readonly']
         
         # Verificar que el archivo existe
-        if not os.path.exists(self.client_secrets_file ):
-            logger.error(f"El archivo {self.client_secrets_file} no existe")
+        if os.path.exists(self.client_secrets_file ):
+            logger.info(f"Archivo {self.client_secrets_file} encontrado")
+        else:
+            logger.error(f"Archivo {self.client_secrets_file} no existe")
     
     def get_auth_url(self):
         """
@@ -39,13 +41,6 @@ class GmailServiceReal:
             # Verificar que el archivo existe
             if not os.path.exists(self.client_secrets_file):
                 raise FileNotFoundError(f"El archivo {self.client_secrets_file} no existe")
-            
-            # Leer el archivo para verificar que es un JSON válido
-            try:
-                with open(self.client_secrets_file, 'r') as f:
-                    json.load(f)
-            except json.JSONDecodeError:
-                raise ValueError(f"El archivo {self.client_secrets_file} no es un JSON válido")
             
             # Generar la URL de autorización
             flow = Flow.from_client_secrets_file(
