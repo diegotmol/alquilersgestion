@@ -73,7 +73,7 @@ def get_auth_url():
             }), 500
         
         # Generar URL fija para pruebas (esto funcionó en la solución 1)
-        auth_url = "https://accounts.google.com/o/oauth2/auth?client_id=1048001566908-9qqjbfvlvj7rkjbcvghlgridmvsb3blc.apps.googleusercontent.com&redirect_uri=https://gestion-pagos-alquileres.onrender.com/callback&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
+        auth_url = "https://accounts.google.com/o/oauth2/auth?client_id=969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com&redirect_uri=https://gestion-pagos-alquileres.onrender.com/callback&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
         
         logger.info(f"URL de autorización generada: {auth_url[:50]}..." )
         return jsonify({'auth_url': auth_url})
