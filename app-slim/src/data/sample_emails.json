@@ -1,0 +1,26 @@
+[
+  {
+    "id": "email1",
+    "from": "serviciodetransferencias@bancochile.cl",
+    "to": "dtapia.mol@gmail.com",
+    "subject": "Aviso de transferencia de fondos",
+    "date": "2025-04-21T08:44:00Z",
+    "body_html": "\n                <div>\n                    <h2>Comprobante de transferencia electrónica de fondos</h2>\n                    <p>Estimado(a): Diego T</p>\n                    <p>Te informamos que nuestro(a) cliente Diego Alfredo Tapia ha efectuado una transferencia de fondos a tu cuenta con el siguiente detalle:</p>\n                    \n                    <div>\n                        <h3>Datos de cuenta</h3>\n                        <p>Fecha: 21/04/2025</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Datos de destinatario</h3>\n                        <p>Nombre y Apellido: Diego T</p>\n                        <p>Rut: 18410125-4</p>\n                        <p>Email: dtapia.mol@gmail.com</p>\n                        <p>Banco: Tenpo Prepago</p>\n                        <p>Cuenta destino: Cuenta Vista</p>\n                        <p>11-111-84101-25</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Monto</h3>\n                        <p>$36.000</p>\n                    </div>\n                    \n                    <div>\n                        <p>Número de comprobante: TEFMBCO250421084411910820366</p>\n                    </div>\n                </div>\n                "
+  },
+  {
+    "id": "email2",
+    "from": "serviciodetransferencias@bancochile.cl",
+    "to": "dtapia.mol@gmail.com",
+    "subject": "Aviso de transferencia de fondos",
+    "date": "2025-05-15T10:22:00Z",
+    "body_html": "\n                <div>\n                    <h2>Comprobante de transferencia electrónica de fondos</h2>\n                    <p>Estimado(a): Diego T</p>\n                    <p>Te informamos que nuestro(a) cliente Carlos Rodríguez ha efectuado una transferencia de fondos a tu cuenta con el siguiente detalle:</p>\n                    \n                    <div>\n                        <h3>Datos de cuenta</h3>\n                        <p>Fecha: 15/05/2025</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Datos de destinatario</h3>\n                        <p>Nombre y Apellido: Diego T</p>\n                        <p>Rut: 18410125-4</p>\n                        <p>Email: dtapia.mol@gmail.com</p>\n                        <p>Banco: Tenpo Prepago</p>\n                        <p>Cuenta destino: Cuenta Vista</p>\n                        <p>11-111-84101-25</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Monto</h3>\n                        <p>$300.000</p>\n                    </div>\n                    \n                    <div>\n                        <p>Número de comprobante: TEFMBCO250515102211910820367</p>\n                    </div>\n                </div>\n                "
+  },
+  {
+    "id": "email3",
+    "from": "serviciodetransferencias@bancochile.cl",
+    "to": "otro@ejemplo.com",
+    "subject": "Aviso de transferencia de fondos",
+    "date": "2025-05-18T14:30:00Z",
+    "body_html": "\n                <div>\n                    <h2>Comprobante de transferencia electrónica de fondos</h2>\n                    <p>Estimado(a): Juan Pérez</p>\n                    <p>Te informamos que nuestro(a) cliente María González ha efectuado una transferencia de fondos a tu cuenta con el siguiente detalle:</p>\n                    \n                    <div>\n                        <h3>Datos de cuenta</h3>\n                        <p>Fecha: 18/05/2025</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Datos de destinatario</h3>\n                        <p>Nombre y Apellido: Juan Pérez</p>\n                        <p>Rut: 12345678-9</p>\n                        <p>Email: otro@ejemplo.com</p>\n                        <p>Banco: Banco Estado</p>\n                        <p>Cuenta destino: Cuenta Corriente</p>\n                        <p>22-222-12345-67</p>\n                    </div>\n                    \n                    <div>\n                        <h3>Monto</h3>\n                        <p>$150.000</p>\n                    </div>\n                    \n                    <div>\n                        <p>Número de comprobante: TEFMBCO250518143011910820368</p>\n                    </div>\n                </div>\n                "
+  }
+]
