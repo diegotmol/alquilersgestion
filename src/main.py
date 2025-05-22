@@ -17,25 +17,28 @@ from src.routes.sync import sync_bp
 from src.routes.user import user_bp
 from src.models.database import db
 
-# Configurar la carpeta de archivos estáticos correctamente
-static_folder_path = os.path.join(os.path.dirname(__file__), 'static')
-app = Flask(__name__, static_folder=static_folder_path)
-CORS(app)
+app = Flask(__name__)
 
-# Configuración de la base de datos PostgreSQL en Render (URL externa)
-database_url = "postgresql://gestion_pagos_user:ZMF1bPMxnsp52UvNPF37sMMY1pLoIwqT@dpg-d0n2s9re5dus73auvbhg-a.oregon-postgres.render.com/gestion_pagos"
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+# Configuración de la base de datos
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///data/alquileres.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-por-defecto')
 
 # Inicializar la base de datos
 db.init_app(app)
 
-# Registrar blueprints con prefijos de API
+# Configurar la carpeta de archivos estáticos correctamente
+static_folder_path = os.path.join(os.path.dirname(__file__), 'static')
+app.static_folder = static_folder_path
+
+# Registrar blueprints
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(inquilinos_bp, url_prefix='/api/inquilinos')
-app.register_blueprint(sync_bp, url_prefix='/api/sync')
+app.register_blueprint(sync_bp)  # Este blueprint ya tiene sus propios prefijos
 app.register_blueprint(user_bp, url_prefix='/api')
+
+# Aplicar CORS después de registrar los blueprints
+CORS(app)
 
 # Ruta específica para favicon.ico
 @app.route('/favicon.ico')
@@ -69,10 +72,10 @@ def page_not_found(e):
         # Para rutas no-API, devuelve index.html (SPA)
         return send_from_directory(app.static_folder, 'index.html')
 
-# Manejador de errores global para asegurar respuestas JSON solo para API
+# Manejador de errores global para asegurar respuestas JSON para rutas de API
 @app.errorhandler(Exception)
 def handle_exception(e):
-    """Manejador global de excepciones."""
+    """Manejador global de excepciones para devolver siempre JSON para rutas de API."""
     logger.error(f"Error no manejado: {str(e)}")
     
     if request.path.startswith('/api/'):
