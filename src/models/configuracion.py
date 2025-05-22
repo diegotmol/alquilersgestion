@@ -29,3 +29,4 @@ class Configuracion(db.Model):
             'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S'),
             'fecha_actualizacion': self.fecha_actualizacion.strftime('%Y-%m-%d %H:%M:%S')
         }
+        
