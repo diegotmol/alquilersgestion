@@ -21,15 +21,19 @@ app = Flask(__name__)
 
 # Configuración de la base de datos
 database_url = os.getenv('DATABASE_URL', None)
-if database_url and database_url.startswith('postgres://'):
+if database_url:
     # Render usa postgres:// pero SQLAlchemy requiere postgresql://
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    logger.info(f"Usando base de datos externa: {database_url[:15]}...")
 else:
     # Asegurarse de que la carpeta data exista
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
     os.makedirs(data_dir, exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{data_dir}/alquileres.db'
+    sqlite_path = os.path.join(data_dir, 'alquileres.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{sqlite_path}'
+    logger.info(f"Usando SQLite local en: {sqlite_path}")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-por-defecto')
@@ -41,7 +45,7 @@ db.init_app(app)
 static_folder_path = os.path.join(os.path.dirname(__file__), 'static')
 app.static_folder = static_folder_path
 
-# Registrar blueprints
+# Registrar blueprints con prefijos explícitos
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(inquilinos_bp, url_prefix='/api/inquilinos')
 app.register_blueprint(sync_bp)  # Este blueprint ya tiene sus propios prefijos
@@ -106,7 +110,11 @@ def handle_exception(e):
 
 # Crear las tablas si no existen
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        logger.info("Base de datos inicializada correctamente")
+    except Exception as e:
+        logger.error(f"Error al inicializar la base de datos: {str(e)}")
 
 if __name__ == '__main__':
     app.run(debug=True)
