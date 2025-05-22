@@ -70,7 +70,13 @@ def get_auth_url():
     """
     Obtiene la URL de autorización para OAuth2 con Gmail.
     """
-    logger.info("Endpoint /api/auth/url llamado")
+    logger.info("Endpoint /api/auth/url llamado - PRUEBA CON JSON FIJO")
+    
+    # PRUEBA: Devolver un JSON fijo para verificar si el problema está en la respuesta JSON
+    return jsonify({"test_url": "https://example.com/test-auth", "mensaje": "URL de prueba"} )
+    
+    # El código original está comentado para la prueba
+    """
     try:
         # Verificar que el archivo client_secret.json existe
         client_secrets_file = os.path.join(os.getcwd(), "client_secret.json")
@@ -128,6 +134,7 @@ def get_auth_url():
             'tipo_error': type(e).__name__,
             'traza': str(e.__traceback__)
         }), 500
+    """
 
 @sync_bp.route('/callback')
 def auth_callback():
