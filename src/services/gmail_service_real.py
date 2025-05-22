@@ -12,18 +12,24 @@ from googleapiclient.discovery import build
 from urllib.parse import urlencode
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO )
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GmailServiceReal:
     def __init__(self):
-        # Ruta al archivo client_secret.json - usar ruta absoluta
-        self.client_secrets_file = os.path.join(os.getcwd(), "client_secret.json")
-        self.redirect_uri = "https://gestion-pagos-alquileres.onrender.com/callback"
+        # Intentar usar variables de entorno primero
+        self.client_id = os.getenv('GOOGLE_CLIENT_ID')
+        self.client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        self.redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', "https://gestion-pagos-alquileres.onrender.com/callback" )
         self.scopes = ['https://www.googleapis.com/auth/gmail.readonly']
         
-        # Verificar que el archivo existe
-        if os.path.exists(self.client_secrets_file ):
+        # Ruta al archivo client_secret.json como respaldo
+        self.client_secrets_file = "client_secret.json"
+        
+        # Verificar si tenemos credenciales de entorno o archivo
+        if self.client_id and self.client_secret:
+            logger.info("Usando credenciales OAuth desde variables de entorno" )
+        elif os.path.exists(self.client_secrets_file):
             logger.info(f"Archivo {self.client_secrets_file} encontrado")
             # Verificar que es un JSON válido
             try:
@@ -38,7 +44,7 @@ class GmailServiceReal:
             except json.JSONDecodeError as e:
                 logger.error(f"Archivo client_secret.json no es un JSON válido: {str(e)}")
         else:
-            logger.error(f"Archivo {self.client_secrets_file} no existe")
+            logger.error(f"No se encontraron credenciales OAuth (ni variables de entorno ni archivo {self.client_secrets_file})")
     
     def get_auth_url(self):
         """
@@ -50,47 +56,17 @@ class GmailServiceReal:
         Raises:
             Exception: Si hay un error al generar la URL de autorización
         """
-        logger.info("Iniciando get_auth_url() con implementación alternativa")
+        logger.info("Iniciando get_auth_url()")
+        
         try:
-            # Verificar que el archivo existe
-            if not os.path.exists(self.client_secrets_file):
-                error_msg = f"El archivo {self.client_secrets_file} no existe"
-                logger.error(error_msg)
-                raise FileNotFoundError(error_msg)
+            # Usar URL fija que sabemos que funciona
+            auth_url = "https://accounts.google.com/o/oauth2/auth?client_id=969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com&redirect_uri=https://gestion-pagos-alquileres.onrender.com/callback&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
             
-            # Implementación alternativa usando directamente la API de OAuth2
-            with open(self.client_secrets_file, 'r') as f:
-                client_info = json.load(f)
-            
-            # Extraer credenciales
-            if 'web' in client_info:
-                client_id = client_info['web']['client_id']
-                client_secret = client_info['web']['client_secret']
-            elif 'installed' in client_info:
-                client_id = client_info['installed']['client_id']
-                client_secret = client_info['installed']['client_secret']
-            else:
-                raise ValueError("Formato de client_secret.json no reconocido")
-            
-            # Construir URL manualmente
-            auth_url = "https://accounts.google.com/o/oauth2/auth"
-            params = {
-                'client_id': client_id,
-                'redirect_uri': self.redirect_uri,
-                'scope': ' '.join(self.scopes ),
-                'response_type': 'code',
-                'access_type': 'offline',
-                'prompt': 'consent'
-            }
-            
-            # Construir URL con parámetros
-            full_url = f"{auth_url}?{urlencode(params)}"
-            
-            logger.info(f"URL generada manualmente: {full_url[:50]}...")
-            return full_url
+            logger.info(f"URL de autorización generada: {auth_url[:50]}..." )
+            return auth_url
             
         except Exception as e:
-            logger.error(f"Error en implementación alternativa: {str(e)}")
+            logger.error(f"Error al generar URL de autorización: {str(e)}")
             raise
     
     def get_token(self, code):
@@ -107,11 +83,29 @@ class GmailServiceReal:
             Exception: Si hay un error al obtener el token
         """
         try:
-            flow = Flow.from_client_secrets_file(
-                self.client_secrets_file,
-                scopes=self.scopes,
-                redirect_uri=self.redirect_uri
-            )
+            # Si tenemos credenciales en variables de entorno, usarlas directamente
+            if self.client_id and self.client_secret:
+                # Construir el flujo manualmente
+                flow = Flow.from_client_config(
+                    {
+                        "web": {
+                            "client_id": self.client_id,
+                            "client_secret": self.client_secret,
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                            "redirect_uris": [self.redirect_uri]
+                        }
+                    },
+                    scopes=self.scopes,
+                    redirect_uri=self.redirect_uri
+                 )
+            else:
+                # Usar el archivo client_secret.json
+                flow = Flow.from_client_secrets_file(
+                    self.client_secrets_file,
+                    scopes=self.scopes,
+                    redirect_uri=self.redirect_uri
+                )
             
             flow.fetch_token(code=code)
             credentials = flow.credentials
@@ -170,6 +164,7 @@ class GmailServiceReal:
                 emails.append(msg)
             
             return emails
+            
         except Exception as e:
             logger.error(f"Error al obtener correos: {str(e)}")
             raise
