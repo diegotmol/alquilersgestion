@@ -21,7 +21,11 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuración de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///data/alquileres.db')
+# Configuración de la base de datos PostgreSQL en Render (URL externa)
+database_url = "postgresql://gestion_pagos_user:ZMF1bPMxnsp52UvNPF37sMMY1pLoIwqT@dpg-d0n2s9re5dus73auvbhg-a.oregon-postgres.render.com/gestion_pagos"
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-por-defecto')
 
