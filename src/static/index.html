@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Pagos de Alquileres</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="menu-toggle">
+        <button id="menu-button">☰</button>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <h2>Menú</h2>
+            <button id="ver-pagos-btn">Ver Pagos</button>
+            <button id="anadir-inquilinos-btn">Añadir Inquilinos</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="header">
+                <h1>Gestión de Pagos de Alquileres</h1>
+            </div>
+            
+            <div class="content">
+                <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
+                <button id="sincronizar-correos-btn">Sincronizar Correos</button>
+                
+                <div id="ultima-sincronizacion">
+                    <p>Última sincronización: <span id="fecha-sincronizacion">10 de agosto de 2025</span></p>
+                </div>
+                
+                <div id="selector-mes">
+                    <label for="mes">Seleccionar Mes:</label>
+                    <select id="mes">
+                        <option value="1">Enero 2025</option>
+                        <option value="2">Febrero 2025</option>
+                        <option value="3">Marzo 2025</option>
+                        <option value="4">Abril 2025</option>
+                        <option value="5">Mayo 2025</option>
+                        <option value="6">Junio 2025</option>
+                        <option value="7">Julio 2025</option>
+                        <option value="8">Agosto 2025</option>
+                        <option value="9">Septiembre 2025</option>
+                        <option value="10">Octubre 2025</option>
+                        <option value="11">Noviembre 2025</option>
+                        <option value="12">Diciembre 2025</option>
+                        <option value="todos">Todos los meses</option>
+                    </select>
+                </div>
+                
+                <div class="tabla-container">
+                    <table id="tabla-inquilinos">
+                        <thead>
+                            <tr>
+                                <th>Propietario</th>
+                                <th>Propiedad</th>
+                                <th>Número de Teléfono</th>
+                                <th>Monto a Pagar</th>
+                                <th>Estado de pago</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inquilinos-body">
+                            <!-- Los datos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="totales">
+                    <div>Total: <span id="total-monto">$0</span></div>
+                    <div>Total Pagado: <span id="total-pagado">$0</span></div>
+                    <div>Total No Pagado: <span id="total-no-pagado">$0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para añadir/editar inquilino -->
+    <div id="modal-inquilino" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-titulo">Añadir Inquilino</h2>
+            <form id="form-inquilino">
+                <input type="hidden" id="inquilino-id">
+                <div class="form-group">
+                    <label for="nombre">Nombre:</label>
+                    <input type="text" id="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="propiedad">Propiedad:</label>
+                    <input type="text" id="propiedad" required>
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Número de Teléfono:</label>
+                    <input type="text" id="telefono" required>
+                </div>
+                <div class="form-group">
+                    <label for="rut">RUT:</label>
+                    <input type="text" id="rut" placeholder="Ej: 12345678-9">
+                </div>
+                <div class="form-group">
+                    <label for="monto">Monto a Pagar:</label>
+                    <input type="number" id="monto" required>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" id="btn-agregar">Agregar</button>
+                    <button type="button" id="btn-cancelar">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal para autenticación de Google -->
+    <div id="modal-google-auth" class="modal">
+        <div class="modal-content">
+            <h2>Iniciar sesión en Google</h2>
+            <p>Para sincronizar con tu correo, necesitamos que inicies sesión en tu cuenta de Google.</p>
+            <div class="google-auth-container">
+                <div id="google-signin-button"></div>
+            </div>
+            <div class="form-buttons">
+                <button type="button" id="btn-cancelar-auth">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/script.js"></script>
+</body>
+</html>
