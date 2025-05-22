@@ -9,9 +9,10 @@ from flask import session, url_for, redirect, request
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from urllib.parse import urlencode
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO )
 logger = logging.getLogger(__name__)
 
 class GmailServiceReal:
@@ -49,7 +50,7 @@ class GmailServiceReal:
         Raises:
             Exception: Si hay un error al generar la URL de autorización
         """
-        logger.info("Iniciando get_auth_url()")
+        logger.info("Iniciando get_auth_url() con implementación alternativa")
         try:
             # Verificar que el archivo existe
             if not os.path.exists(self.client_secrets_file):
@@ -57,53 +58,40 @@ class GmailServiceReal:
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
             
-            logger.info(f"Archivo {self.client_secrets_file} encontrado, verificando contenido...")
+            # Implementación alternativa usando directamente la API de OAuth2
+            with open(self.client_secrets_file, 'r') as f:
+                client_info = json.load(f)
             
-            # Leer el archivo para verificar que es un JSON válido
-            try:
-                with open(self.client_secrets_file, 'r') as f:
-                    json_content = json.load(f)
-                    # Verificar que tiene la estructura esperada
-                    if 'web' not in json_content and 'installed' not in json_content:
-                        error_msg = f"El archivo {self.client_secrets_file} no tiene la estructura esperada de credenciales OAuth2"
-                        logger.error(error_msg)
-                        raise ValueError(error_msg)
-                    logger.info("Contenido de client_secret.json validado correctamente")
-            except json.JSONDecodeError as e:
-                error_msg = f"El archivo {self.client_secrets_file} no es un JSON válido: {str(e)}"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+            # Extraer credenciales
+            if 'web' in client_info:
+                client_id = client_info['web']['client_id']
+                client_secret = client_info['web']['client_secret']
+            elif 'installed' in client_info:
+                client_id = client_info['installed']['client_id']
+                client_secret = client_info['installed']['client_secret']
+            else:
+                raise ValueError("Formato de client_secret.json no reconocido")
             
-            # Generar la URL de autorización
-            logger.info("Creando flujo OAuth2...")
-            flow = Flow.from_client_secrets_file(
-                self.client_secrets_file,
-                scopes=self.scopes,
-                redirect_uri=self.redirect_uri
-            )
+            # Construir URL manualmente
+            auth_url = "https://accounts.google.com/o/oauth2/auth"
+            params = {
+                'client_id': client_id,
+                'redirect_uri': self.redirect_uri,
+                'scope': ' '.join(self.scopes ),
+                'response_type': 'code',
+                'access_type': 'offline',
+                'prompt': 'consent'
+            }
             
-            logger.info("Generando URL de autorización...")
-            auth_url, _ = flow.authorization_url(
-                access_type='offline',
-                include_granted_scopes='true',
-                prompt='consent'
-            )
+            # Construir URL con parámetros
+            full_url = f"{auth_url}?{urlencode(params)}"
             
-            # Verificar explícitamente que la URL no sea None o vacía
-            if not auth_url:
-                error_msg = "URL de autorización generada es None o vacía"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
-                
-            logger.info(f"URL de autorización generada exitosamente: {auth_url[:50]}...")
-            return auth_url
+            logger.info(f"URL generada manualmente: {full_url[:50]}...")
+            return full_url
             
         except Exception as e:
-            # Registrar el error con detalles
-            error_msg = f"Error al generar URL de autorización: {str(e)}"
-            logger.error(error_msg)
-            # Re-lanzar la excepción para que sea manejada por el controlador
-            raise Exception(error_msg)
+            logger.error(f"Error en implementación alternativa: {str(e)}")
+            raise
     
     def get_token(self, code):
         """
