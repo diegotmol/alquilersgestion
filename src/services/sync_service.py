@@ -65,17 +65,17 @@ class SyncService:
             inquilinos = Inquilino.query.all()
             for inquilino in inquilinos:
                 # Verificar si el nombre del propietario y el monto coinciden
-                if (inquilino.nombre.lower() in transfer_data.get('destinatario', '').lower() or 
-                    transfer_data.get('destinatario', '').lower() in inquilino.nombre.lower()):
+                if (inquilino.propietario.lower() in transfer_data.get('destinatario', '').lower() or 
+                    transfer_data.get('destinatario', '').lower() in inquilino.propietario.lower()):
                     # Verificar el monto
                     if inquilino.monto == transfer_data.get('monto'):
                         # Actualizar el estado de pago
-                        inquilino.pagado = True
+                        inquilino.estado_pago = 'Pagado'
                         db.session.commit()
                         
                         matched_payments.append({
                             'inquilino_id': inquilino.id,
-                            'inquilino_nombre': inquilino.nombre,
+                            'inquilino_nombre': inquilino.propietario,
                             'monto': inquilino.monto,
                             'fecha_pago': transfer_data.get('fecha_texto', str(transfer_data.get('fecha')))
                         })
