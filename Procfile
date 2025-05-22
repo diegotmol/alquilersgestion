@@ -1,1 +1,1 @@
-web: gunicorn src.main:app
+web: pip install flask-sqlalchemy && gunicorn src.main:app
