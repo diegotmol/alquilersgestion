@@ -1,6 +1,4 @@
-"""
-Servicio para la sincronización de correos electrónicos.
-"""
+""" Servicio para la sincronización de correos electrónicos. """
 import logging
 from datetime import datetime
 from src.services.gmail_service_real import GmailServiceReal
@@ -14,41 +12,63 @@ logger = logging.getLogger(__name__)
 class SyncService:
     def __init__(self):
         self.gmail_service = GmailServiceReal()
-    
+
     def sync_emails(self, credentials, mes=None):
         """
         Sincroniza los correos electrónicos con Gmail y actualiza el estado de pago.
-        
+
         Args:
             credentials (dict): Credenciales de acceso a Gmail
             mes (str, optional): Mes para filtrar correos. Por defecto None.
-            
+
         Returns:
             dict: Resultado de la sincronización
         """
         try:
-            # Construir la consulta para filtrar correos
+            # Mantener la consulta original rígida como lo solicitó el usuario
             query = "subject:Comprobante de pago"
+            
             if mes:
                 query += f" AND subject:{mes}"
+            
+            logger.info(f"Ejecutando búsqueda con query: {query}")
             
             # Obtener correos
             emails = self.gmail_service.get_emails(credentials, query=query)
             
-            # Actualizar fecha de última sincronización
-            config = Configuracion.query.first()
-            if not config:
-                config = Configuracion(ultima_sincronizacion=datetime.now())
-            else:
-                config.ultima_sincronizacion = datetime.now()
+            logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda")
             
+            # Actualizar fecha de última sincronización
+            now = datetime.now()
+            logger.info(f"Actualizando fecha de última sincronización a: {now}")
+            
+            # Buscar configuración existente o crear una nueva
+            config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
+            
+            if not config:
+                # Crear nueva configuración
+                config = Configuracion(
+                    clave="ultima_sincronizacion",
+                    valor=now.isoformat(),
+                    descripcion="Fecha de la última sincronización de correos"
+                )
+                logger.info("Creando nueva configuración para última sincronización")
+            else:
+                # Actualizar configuración existente
+                config.valor = now.isoformat()
+                logger.info("Actualizando configuración existente para última sincronización")
+            
+            # Guardar en la base de datos
             db.session.add(config)
             db.session.commit()
+            
+            logger.info(f"Fecha de última sincronización guardada: {config.valor}")
             
             return {
                 "success": True,
                 "mensaje": f"Se sincronizaron {len(emails)} correos",
-                "emails": len(emails)
+                "emails": len(emails),
+                "fecha_sincronizacion": now.isoformat()  # Incluir la fecha en la respuesta
             }
         except Exception as e:
             logger.error(f"Error en sincronización: {str(e)}")
@@ -57,30 +77,41 @@ class SyncService:
                 "mensaje": f"Error en sincronización: {str(e)}",
                 "emails": 0
             }
-    
+
     def get_last_sync(self):
         """
         Obtiene la fecha de la última sincronización.
-        
+
         Returns:
-            str: Fecha de la última sincronización en formato ISO
+            dict: Información sobre la última sincronización
         """
         try:
-            config = Configuracion.query.first()
-            if config and config.ultima_sincronizacion:
-                return config.ultima_sincronizacion.isoformat()
-            return None
+            # Buscar la configuración por clave
+            config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
+            
+            if config and config.valor:
+                logger.info(f"Fecha de última sincronización encontrada: {config.valor}")
+                return {
+                    "success": True,
+                    "fecha_sincronizacion": config.valor
+                }
+            
+            logger.info("No se encontró fecha de última sincronización")
+            return {
+                "success": False,
+                "mensaje": "No hay registros de sincronización previa"
+            }
         except Exception as e:
             logger.error(f"Error al obtener última sincronización: {str(e)}")
             raise
-    
+
     def process_auth_callback(self, code):
         """
         Procesa el callback de autorización de OAuth2 con Gmail.
-        
+
         Args:
             code (str): Código de autorización
-            
+
         Returns:
             dict: Credenciales de acceso
         """
