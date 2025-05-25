@@ -7,113 +7,98 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <!-- Menú lateral -->
     <div class="menu" id="menu">
         <h2>Menú</h2>
-        <button id="btn-ver-pagos">Ver Pagos</button>
-        <button id="btn-anadir-inquilinos">Añadir Inquilinos</button>
+        <input type="button" id="Ver Pagos" value="Ver Pagos">
+        <input type="button" id="Añadir Inquilinos" value="Añadir Inquilinos">
     </div>
     
-    <!-- Botón flotante para menú en móvil -->
-    <button class="menu-toggle" id="menu-toggle">☰</button>
+    <input type="button" class="menu-toggle" id="menu-toggle" value="☰">
     
-    <!-- Contenido principal -->
-    <div class="main-content">
-        <header>
-            <h1>Gestión de Pagos de Alquileres</h1>
-        </header>
+    <h1>Gestión de Pagos de Alquileres</h1>
+    
+    <h2>Sincronización de Correos</h2>
+    <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
+    <input type="button" value="Sincronizar Correos">
+    <p>Última sincronización: <span id="ultima-sincronizacion">No hay registros</span></p>
+    
+    <div>
+        Seleccionar Mes: 
+        <select id="mes">
+            <option value="01">Enero</option>
+            <option value="02">Febrero</option>
+            <option value="03">Marzo</option>
+            <option value="04">Abril</option>
+            <option value="05">Mayo</option>
+            <option value="06">Junio</option>
+            <option value="07">Julio</option>
+            <option value="08">Agosto</option>
+            <option value="09">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+        </select>
         
-        <div class="content">
-            <h2>Sincronización de Correos</h2>
-            <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
-            <button id="sincronizar-correos-btn">Sincronizar Correos</button>
-            <p>Última sincronización: <span id="ultima-sincronizacion">No hay registros</span></p>
-            
-            <div id="selector-mes">
-                Seleccionar Mes: 
-                <select id="mes">
-                    <option value="01">Enero</option>
-                    <option value="02">Febrero</option>
-                    <option value="03">Marzo</option>
-                    <option value="04">Abril</option>
-                    <option value="05">Mayo</option>
-                    <option value="06">Junio</option>
-                    <option value="07">Julio</option>
-                    <option value="08">Agosto</option>
-                    <option value="09">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
-                
-                Seleccionar Año: 
-                <select id="año">
-                    <option value="2025">2025</option>
-                    <option value="2026">2026</option>
-                </select>
-            </div>
-            
-            <div class="tabla-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Propietario</th>
-                            <th>Propiedad</th>
-                            <th>Número de Teléfono</th>
-                            <th>Monto a Pagar</th>
-                            <th>Estado de pago</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inquilinos-body">
-                        <!-- Se llenará dinámicamente con JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="totales">
-                <div>Total: <span id="total">$0</span></div>
-                <div>Total Pagado: <span id="total-pagado">$0</span></div>
-                <div>Total No Pagado: <span id="total-no-pagado">$0</span></div>
-            </div>
-        </div>
+        Seleccionar Año: 
+        <select id="año">
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+        </select>
     </div>
     
-    <!-- Modal para agregar/editar inquilino -->
+    <table>
+        <tr>
+            <th>Propietario</th>
+            <th>Propiedad</th>
+            <th>Número de Teléfono</th>
+            <th>Monto a Pagar</th>
+            <th>Estado de pago</th>
+            <th>Acciones</th>
+        </tr>
+        <!-- Las filas se generarán dinámicamente con JavaScript -->
+    </table>
+    
+    <div>
+        <p>Total: <span id="total">$0</span></p>
+        <p>Total Pagado: <span id="total-pagado">$0</span></p>
+        <p>Total No Pagado: <span id="total-no-pagado">$0</span></p>
+    </div>
+    
+    <!-- Modal para añadir/editar inquilinos -->
     <div id="modal-inquilino" class="modal">
         <div class="modal-content">
             <h2>Añadir Inquilino</h2>
             <form id="form-inquilino">
                 <input type="hidden" id="inquilino-id">
                 
-                <div class="form-group">
+                <div>
                     <label for="propietario">Propietario:</label>
                     <input type="text" id="propietario" required>
                 </div>
                 
-                <div class="form-group">
+                <div>
                     <label for="propiedad">Propiedad:</label>
                     <input type="text" id="propiedad" required>
                 </div>
                 
-                <div class="form-group">
+                <div>
                     <label for="telefono">Número de Teléfono:</label>
                     <input type="text" id="telefono" required>
                 </div>
                 
-                <div class="form-group">
+                <div>
                     <label for="rut">RUT:</label>
                     <input type="text" id="rut">
                 </div>
                 
-                <div class="form-group">
+                <div>
                     <label for="monto">Monto a Pagar:</label>
                     <input type="number" id="monto" required>
                 </div>
                 
-                <div class="form-buttons">
-                    <button type="button" id="btn-cancelar">Cancelar</button>
-                    <button type="submit" id="btn-agregar">Agregar</button>
+                <div>
+                    <input type="button" id="btn-cancelar" value="Cancelar">
+                    <input type="submit" id="btn-agregar" value="Agregar">
                 </div>
             </form>
         </div>
