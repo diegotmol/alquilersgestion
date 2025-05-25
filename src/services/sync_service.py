@@ -29,7 +29,7 @@ class SyncService:
             # Obtener correos
             emails = self.gmail_service.get_emails(credentials, query=query)
             
-            logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda")
+            logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda.")
             
             # Actualizar fecha de última sincronización - USAR UTC EXPLÍCITAMENTE
             # Usando pytz en lugar de datetime.timezone
@@ -60,7 +60,7 @@ class SyncService:
             
             return {
                 "success": True,
-                "mensaje": f"Se encontraron {len(emails)} transferencias",  # Mensaje modificado
+                "mensaje": f"Se encontraron {len(emails)} transferencias.",  # Mensaje modificado
                 "emails": len(emails),
                 "fecha_sincronizacion": now.isoformat()  # Incluir la fecha en la respuesta
             }
