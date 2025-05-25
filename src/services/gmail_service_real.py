@@ -20,27 +20,29 @@ class GmailServiceReal:
         # Intentar usar variables de entorno primero
         self.client_id = os.getenv('GOOGLE_CLIENT_ID')
         self.client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
-        self.redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', "https://gestion-pagos-alquileres.onrender.com/callback" )
-        self.scopes = ['https://www.googleapis.com/auth/gmail.readonly']
+        self.redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', "https://gestion-pagos-alquileres.onrender.com/callback")
+        
+        # Modificado: Usar el scope específico solicitado
+        self.scopes = ['https://www.googleapis.com/auth/gmail.addons.current.message.action']
         
         # Ruta al archivo client_secret.json como respaldo
         self.client_secrets_file = "client_secret.json"
         
         # Verificar si tenemos credenciales de entorno o archivo
         if self.client_id and self.client_secret:
-            logger.info("Usando credenciales OAuth desde variables de entorno" )
+            logger.info("Usando credenciales OAuth desde variables de entorno")
         elif os.path.exists(self.client_secrets_file):
             logger.info(f"Archivo {self.client_secrets_file} encontrado")
             # Verificar que es un JSON válido
             try:
                 with open(self.client_secrets_file, 'r') as f:
                     json_content = json.load(f)
-                    logger.info("Archivo client_secret.json es un JSON válido")
-                    # Verificar estructura básica
-                    if 'web' in json_content or 'installed' in json_content:
-                        logger.info("Estructura de client_secret.json parece correcta")
-                    else:
-                        logger.warning("Estructura de client_secret.json no tiene formato esperado de OAuth2")
+                logger.info("Archivo client_secret.json es un JSON válido")
+                # Verificar estructura básica
+                if 'web' in json_content or 'installed' in json_content:
+                    logger.info("Estructura de client_secret.json parece correcta")
+                else:
+                    logger.warning("Estructura de client_secret.json no tiene formato esperado de OAuth2")
             except json.JSONDecodeError as e:
                 logger.error(f"Archivo client_secret.json no es un JSON válido: {str(e)}")
         else:
@@ -57,14 +59,14 @@ class GmailServiceReal:
             Exception: Si hay un error al generar la URL de autorización
         """
         logger.info("Iniciando get_auth_url()")
-        
         try:
-            # Usar URL fija que sabemos que funciona
-            auth_url = "https://accounts.google.com/o/oauth2/auth?client_id=969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com&redirect_uri=https://gestion-pagos-alquileres.onrender.com/callback&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
+            # Usar URL fija que sabemos que funciona, pero con el scope actualizado
+            client_id = "969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com"
+            scope = "https://www.googleapis.com/auth/gmail.addons.current.message.action"
+            auth_url = f"https://accounts.google.com/o/oauth2/auth?client_id={client_id}&redirect_uri={self.redirect_uri}&scope={scope}&response_type=code&access_type=offline&prompt=consent"
             
-            logger.info(f"URL de autorización generada: {auth_url[:50]}..." )
+            logger.info(f"URL de autorización generada con scope actualizado: {auth_url[:50]}...")
             return auth_url
-            
         except Exception as e:
             logger.error(f"Error al generar URL de autorización: {str(e)}")
             raise
@@ -98,7 +100,7 @@ class GmailServiceReal:
                     },
                     scopes=self.scopes,
                     redirect_uri=self.redirect_uri
-                 )
+                )
             else:
                 # Usar el archivo client_secret.json
                 flow = Flow.from_client_secrets_file(
