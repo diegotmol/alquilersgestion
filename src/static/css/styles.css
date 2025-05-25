@@ -8,116 +8,103 @@
 
 body {
     background-color: #f5f5f5;
+    line-height: 1.6;
 }
 
-.container {
-    display: flex;
-    min-height: 100vh;
-}
-
-/* Estilos del menú lateral */
-.sidebar {
-    width: 250px;
-    background-color: #333;
-    color: white;
-    padding: 20px;
-    transition: all 0.3s ease;
-    display: none; /* Oculto por defecto */
-    position: fixed;
-    height: 100%;
-    top: 0;
-    left: 0;
-    z-index: 999;
-}
-
-.sidebar h2 {
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.sidebar button {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
-    background-color: #2c7fb8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.sidebar button:hover {
-    background-color: #1f5f89;
-}
-
-/* Botón de menú flotante */
-.menu-toggle {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-    display: block;
-}
-
-.menu-toggle button {
-    background-color: #333;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    cursor: pointer;
-}
-
-/* Contenido principal */
-.main-content {
-    flex: 1;
-    padding: 20px;
-    width: 100%;
-}
-
-.header {
+header {
     background-color: #333;
     color: white;
     padding: 20px;
     text-align: center;
-    margin-bottom: 20px;
 }
 
-.content {
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+section {
     background-color: white;
-    padding: 20px;
-    border-radius: 5px;
+    border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    padding: 20px;
 }
 
-/* Botón de sincronizar correos */
-#sincronizar-correos-btn {
+h2 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+h3 {
+    color: #555;
+    margin-bottom: 10px;
+}
+
+/* Estilos para la sección de sincronización */
+.sincronizacion {
+    display: flex;
+    flex-direction: column;
+}
+
+.filtros {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.filtros label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.filtros select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    margin-right: 20px;
+    margin-bottom: 10px;
+}
+
+/* Botón principal */
+.btn-principal {
     background-color: #4285f4;
     color: white;
     border: none;
     padding: 10px 15px;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 16px;
     margin: 10px 0;
+    max-width: 200px;
 }
 
-#sincronizar-correos-btn:hover {
+.btn-principal:hover {
     background-color: #3367d6;
 }
 
-/* Selector de mes */
-#selector-mes {
-    margin: 20px 0;
+/* Formulario de inquilinos */
+.formulario-container {
+    margin-bottom: 30px;
 }
 
-#selector-mes select {
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
     padding: 8px;
-    border-radius: 4px;
     border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 /* Tabla de inquilinos */
@@ -178,95 +165,36 @@ table th {
     justify-content: space-between;
     margin-top: 20px;
     font-weight: bold;
+    flex-wrap: wrap;
 }
 
-/* Modal */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+.totales p {
+    margin-right: 20px;
+    margin-bottom: 10px;
 }
 
-.modal-content {
-    background-color: white;
-    margin: 10% auto;
+/* Footer */
+footer {
+    text-align: center;
     padding: 20px;
-    border-radius: 5px;
-    width: 80%;
-    max-width: 500px;
-}
-
-.modal h2 {
-    margin-bottom: 20px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.form-buttons {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-}
-
-.form-buttons button {
-    padding: 8px 15px;
-    margin-left: 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#btn-agregar {
-    background-color: #4CAF50;
-    color: white;
-}
-
-#btn-cancelar, #btn-cancelar-auth {
-    background-color: #f44336;
-    color: white;
-}
-
-/* Google Auth */
-.google-auth-container {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
+    color: #666;
+    background-color: #f9f9f9;
+    margin-top: 30px;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .container {
+    .filtros {
         flex-direction: column;
+        align-items: flex-start;
     }
     
-    .main-content {
-        margin-top: 60px;
+    .filtros select {
+        width: 100%;
+        margin-bottom: 10px;
     }
     
     .totales {
         flex-direction: column;
-    }
-    
-    .totales div {
-        margin-bottom: 10px;
     }
 }
