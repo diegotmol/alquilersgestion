@@ -4,6 +4,7 @@ Rutas para la sincronización de correos electrónicos.
 from flask import Blueprint, request, jsonify, session, redirect, url_for
 import logging
 import os
+import json
 from src.services.sync_service import SyncService
 from src.models.configuracion import Configuracion
 from src.models.database import db
@@ -25,13 +26,13 @@ def sync_emails():
         data = request.json
         if not data:
             return jsonify({'error': 'No se proporcionaron datos', 'mensaje': 'Datos de solicitud vacíos'}), 400
-
+        
         credentials = data.get('credentials')
         mes = data.get('mes')
         
         if not credentials:
             return jsonify({'error': 'No se proporcionaron credenciales', 'mensaje': 'Credenciales no encontradas en la solicitud'}), 400
-            
+        
         logger.info(f"Iniciando sincronización de correos para el mes: {mes}")
         result = sync_service.sync_emails(credentials, mes)
         return jsonify(result)
@@ -72,12 +73,37 @@ def get_auth_url():
                 'mensaje': 'Archivo de credenciales no encontrado'
             }), 500
         
-        # Generar URL fija para pruebas (esto funcionó en la solución 1)
-        auth_url = "https://accounts.google.com/o/oauth2/auth?client_id=969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com&redirect_uri=https://gestion-pagos-alquileres.onrender.com/callback&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
-        
-        logger.info(f"URL de autorización generada: {auth_url[:50]}..." )
-        return jsonify({'auth_url': auth_url})
-        
+        # Cargar client_id directamente desde el archivo para asegurar consistencia
+        try:
+            with open(client_secrets_file, 'r') as f:
+                json_content = json.load(f)
+                
+            if 'web' in json_content and 'client_id' in json_content['web']:
+                client_id = json_content['web']['client_id']
+                redirect_uri = "https://gestion-pagos-alquileres.onrender.com/callback"
+                scope = "https://www.googleapis.com/auth/gmail.readonly"
+                
+                # Generar URL usando el client_id cargado del archivo
+                auth_url = f"https://accounts.google.com/o/oauth2/auth?client_id={client_id}&redirect_uri={redirect_uri}&scope={scope}&response_type=code&access_type=offline&prompt=consent"
+                
+                logger.info(f"URL de autorización generada con client_id desde archivo: {auth_url[:50]}...")
+                return jsonify({'auth_url': auth_url})
+            else:
+                error_msg = "Formato incorrecto en client_secret.json"
+                logger.error(error_msg)
+                return jsonify({
+                    'error': error_msg,
+                    'mensaje': 'El archivo de credenciales no tiene el formato esperado'
+                }), 500
+                
+        except json.JSONDecodeError as e:
+            error_msg = f"Error al parsear client_secret.json: {str(e)}"
+            logger.error(error_msg)
+            return jsonify({
+                'error': str(e),
+                'mensaje': 'Error al leer el archivo de credenciales'
+            }), 500
+            
     except Exception as e:
         # Asegurar que siempre devolvemos JSON, incluso en caso de error
         error_msg = f"Error no manejado en get_auth_url: {str(e)}"
