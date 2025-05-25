@@ -6,36 +6,6 @@ from flask_cors import CORS
 import os
 import logging
 
-# Al inicio de tu main.py, después de importar las dependencias
-import os
-from pathlib import Path
-
-# Verificar si ya se ejecutó la migración
-MIGRATION_FLAG_FILE = ".migration_completed"
-
-def ejecutar_migracion():
-    if not Path(MIGRATION_FLAG_FILE).exists():
-        try:
-            print("Ejecutando migración de columnas...")
-            # Importar y ejecutar el script de actualización
-            from actualizar_columnas import agregar_columnas_pagos
-            resultado = agregar_columnas_pagos()
-            
-            if resultado:
-                # Crear archivo de bandera para no volver a ejecutar
-                with open(MIGRATION_FLAG_FILE, "w") as f:
-                    f.write("Migración completada")
-                print("Migración completada con éxito")
-            else:
-                print("Error en la migración")
-        except Exception as e:
-            print(f"Error al ejecutar migración: {str(e)}")
-    else:
-        print("Migración ya fue ejecutada anteriormente")
-
-# Ejecutar la migración antes de iniciar la aplicación
-ejecutar_migracion()
-
 # Resto de tu código de inicialización...
 
 
