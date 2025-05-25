@@ -8,46 +8,82 @@
 
 body {
     background-color: #f5f5f5;
-    line-height: 1.6;
 }
 
+/* Menú lateral */
+.menu {
+    width: 250px;
+    background-color: #333;
+    color: white;
+    position: fixed;
+    height: 100%;
+    left: 0;
+    top: 0;
+    padding: 20px;
+}
+
+.menu h2 {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.menu button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background-color: #2c7fb8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.menu button:hover {
+    background-color: #1f5f89;
+}
+
+/* Contenido principal */
+.main-content {
+    margin-left: 250px;
+    padding: 20px;
+}
+
+/* Encabezado */
 header {
     background-color: #333;
     color: white;
     padding: 20px;
     text-align: center;
+    margin-bottom: 20px;
 }
 
-main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-section {
+/* Sección de sincronización */
+.sincronizacion {
     background-color: white;
-    border-radius: 8px;
+    padding: 20px;
+    border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
-    padding: 20px;
 }
 
-h2 {
-    color: #333;
-    margin-bottom: 15px;
+/* Botón de sincronizar */
+#btn-sincronizar, .btn-sincronizar {
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 10px 0;
 }
 
-h3 {
-    color: #555;
-    margin-bottom: 10px;
+#btn-sincronizar:hover, .btn-sincronizar:hover {
+    background-color: #3367d6;
 }
 
-/* Estilos para la sección de sincronización */
-.sincronizacion {
-    display: flex;
-    flex-direction: column;
-}
-
+/* Selectores de mes y año */
 .filtros {
     display: flex;
     align-items: center;
@@ -66,45 +102,6 @@ h3 {
     border: 1px solid #ddd;
     margin-right: 20px;
     margin-bottom: 10px;
-}
-
-/* Botón principal */
-.btn-principal {
-    background-color: #4285f4;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    margin: 10px 0;
-    max-width: 200px;
-}
-
-.btn-principal:hover {
-    background-color: #3367d6;
-}
-
-/* Formulario de inquilinos */
-.formulario-container {
-    margin-bottom: 30px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
 }
 
 /* Tabla de inquilinos */
@@ -165,25 +162,99 @@ table th {
     justify-content: space-between;
     margin-top: 20px;
     font-weight: bold;
-    flex-wrap: wrap;
 }
 
-.totales p {
-    margin-right: 20px;
-    margin-bottom: 10px;
+/* Modal para agregar/editar inquilino */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
 }
 
-/* Footer */
-footer {
-    text-align: center;
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
     padding: 20px;
-    color: #666;
-    background-color: #f9f9f9;
-    margin-top: 30px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 500px;
+}
+
+.modal h2 {
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.form-buttons button {
+    padding: 8px 15px;
+    margin-left: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Botón flotante para menú */
+.menu-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    cursor: pointer;
+    display: none;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+    .menu {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .menu.active {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .menu-toggle {
+        display: block;
+    }
+    
     .filtros {
         flex-direction: column;
         align-items: flex-start;
@@ -197,4 +268,33 @@ footer {
     .totales {
         flex-direction: column;
     }
+}
+
+/* Formulario de inquilinos en línea */
+.formulario-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.formulario-container h3 {
+    margin-bottom: 15px;
+}
+
+/* Botón principal */
+.btn-principal {
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 10px 0;
+}
+
+.btn-principal:hover {
+    background-color: #3367d6;
 }
