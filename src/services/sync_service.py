@@ -1,6 +1,7 @@
 """ Servicio para la sincronización de correos electrónicos. """
 import logging
 from datetime import datetime
+import pytz  # Necesitamos importar pytz para manejar zonas horarias
 from src.services.gmail_service_real import GmailServiceReal
 from src.models.configuracion import Configuracion
 from src.models.database import db
@@ -16,13 +17,6 @@ class SyncService:
     def sync_emails(self, credentials, mes=None):
         """
         Sincroniza los correos electrónicos con Gmail y actualiza el estado de pago.
-        
-        Args:
-            credentials (dict): Credenciales de acceso a Gmail
-            mes (str, optional): Mes para filtrar correos. Por defecto None.
-            
-        Returns:
-            dict: Resultado de la sincronización
         """
         try:
             # Mantener la consulta original rígida como lo solicitó el usuario
@@ -38,7 +32,8 @@ class SyncService:
             logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda")
             
             # Actualizar fecha de última sincronización - USAR UTC EXPLÍCITAMENTE
-            now = datetime.now(datetime.timezone.utc)
+            # Usando pytz en lugar de datetime.timezone
+            now = datetime.now(pytz.UTC)
             logger.info(f"Actualizando fecha de última sincronización a: {now}")
             
             # Buscar configuración existente o crear una nueva
