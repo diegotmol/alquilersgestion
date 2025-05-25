@@ -22,8 +22,8 @@ class GmailServiceReal:
         self.client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
         self.redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', "https://gestion-pagos-alquileres.onrender.com/callback")
         
-        # Modificado: Usar el scope específico solicitado
-        self.scopes = ['https://www.googleapis.com/auth/gmail.addons.current.message.action']
+        # Usar el scope de Gmail para lectura
+        self.scopes = ['https://www.googleapis.com/auth/gmail.readonly']
         
         # Ruta al archivo client_secret.json como respaldo
         self.client_secrets_file = "client_secret.json"
@@ -33,16 +33,16 @@ class GmailServiceReal:
             logger.info("Usando credenciales OAuth desde variables de entorno")
         elif os.path.exists(self.client_secrets_file):
             logger.info(f"Archivo {self.client_secrets_file} encontrado")
-            # Verificar que es un JSON válido
+            # Cargar client_id desde el archivo para asegurar consistencia
             try:
                 with open(self.client_secrets_file, 'r') as f:
                     json_content = json.load(f)
-                logger.info("Archivo client_secret.json es un JSON válido")
-                # Verificar estructura básica
-                if 'web' in json_content or 'installed' in json_content:
-                    logger.info("Estructura de client_secret.json parece correcta")
-                else:
-                    logger.warning("Estructura de client_secret.json no tiene formato esperado de OAuth2")
+                    if 'web' in json_content:
+                        self.client_id = json_content['web']['client_id']
+                        self.client_secret = json_content['web']['client_secret']
+                        logger.info(f"Client ID cargado desde client_secret.json: {self.client_id[:20]}...")
+                    else:
+                        logger.warning("Estructura de client_secret.json no tiene formato esperado de OAuth2")
             except json.JSONDecodeError as e:
                 logger.error(f"Archivo client_secret.json no es un JSON válido: {str(e)}")
         else:
@@ -60,12 +60,15 @@ class GmailServiceReal:
         """
         logger.info("Iniciando get_auth_url()")
         try:
-            # Usar URL fija que sabemos que funciona, pero con el scope actualizado
-            client_id = "969401828234-ijgdtjlo8kedp831a8jvndv5aejek18.apps.googleusercontent.com"
-            scope = "https://www.googleapis.com/auth/gmail.addons.current.message.action"
-            auth_url = f"https://accounts.google.com/o/oauth2/auth?client_id={client_id}&redirect_uri={self.redirect_uri}&scope={scope}&response_type=code&access_type=offline&prompt=consent"
+            # Verificar que tenemos un client_id
+            if not self.client_id:
+                raise ValueError("No se encontró client_id válido para generar URL de autorización")
+                
+            # Generar URL usando el client_id cargado del archivo client_secret.json
+            # para asegurar consistencia
+            auth_url = f"https://accounts.google.com/o/oauth2/auth?client_id={self.client_id}&redirect_uri={self.redirect_uri}&scope=https://www.googleapis.com/auth/gmail.readonly&response_type=code&access_type=offline&prompt=consent"
             
-            logger.info(f"URL de autorización generada con scope actualizado: {auth_url[:50]}...")
+            logger.info(f"URL de autorización generada con client_id consistente: {auth_url[:50]}...")
             return auth_url
         except Exception as e:
             logger.error(f"Error al generar URL de autorización: {str(e)}")
@@ -162,9 +165,35 @@ class GmailServiceReal:
             # Obtener detalles de cada mensaje
             emails = []
             for message in messages:
-                msg = service.users().messages().get(userId='me', id=message['id']).execute()
-                emails.append(msg)
+                msg = service.users().messages().get(userId='me', id=message['id'], format='full').execute()
+                
+                # Extraer información del correo
+                headers = msg['payload']['headers']
+                subject = next((header['value'] for header in headers if header['name'] == 'Subject'), '')
+                from_email = next((header['value'] for header in headers if header['name'] == 'From'), '')
+                date = next((header['value'] for header in headers if header['name'] == 'Date'), '')
+                
+                # Extraer el cuerpo del mensaje
+                body = ''
+                if 'parts' in msg['payload']:
+                    for part in msg['payload']['parts']:
+                        if part['mimeType'] == 'text/html':
+                            body = part['body']['data']
+                            break
+                        elif part['mimeType'] == 'text/plain':
+                            body = part['body']['data']
+                elif 'body' in msg['payload'] and 'data' in msg['payload']['body']:
+                    body = msg['payload']['body']['data']
+                
+                emails.append({
+                    'id': message['id'],
+                    'subject': subject,
+                    'from': from_email,
+                    'date': date,
+                    'body': body
+                })
             
+            logger.info(f"Procesados {len(emails)} correos electrónicos")
             return emails
             
         except Exception as e:
