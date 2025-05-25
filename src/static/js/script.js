@@ -1,5 +1,3 @@
-// Modificaciones al script.js para corregir la actualización de la fecha de sincronización
-
 // Variables globales
 let inquilinos = [];
 let editandoId = null;
@@ -42,62 +40,77 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Cargar la fecha de última sincronización desde el servidor
-    cargarFechaSincronizacion();
-});
-
-// Función para cargar la fecha de última sincronización
-function cargarFechaSincronizacion() {
-    console.log('Cargando fecha de última sincronización...');
     fetch('/api/sync/last')
         .then(response => response.json())
         .then(data => {
-            console.log('Respuesta de fecha de sincronización:', data);
-            if (data.fecha_sincronizacion) {
-                actualizarFechaSincronizacionUI(data.fecha_sincronizacion);
-            } else {
-                console.log('No se encontró fecha de sincronización');
-                document.getElementById('fecha-sincronizacion').textContent = 'Nunca';
+            if (data) {
+                // Convertir la fecha a un formato más amigable
+                const fechaObj = new Date(data);
+                const opciones = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                const fechaFormateada = fechaObj.toLocaleDateString('es-ES', opciones);
+                
+                // Actualizar el elemento en el DOM
+                document.getElementById('fecha-sincronizacion').textContent = fechaFormateada;
             }
         })
         .catch(error => {
             console.error('Error al cargar la fecha de última sincronización:', error);
-            document.getElementById('fecha-sincronizacion').textContent = 'Error al cargar';
+        });
+});
+
+// Inicializar la aplicación
+function inicializarApp() {
+    cargarInquilinos();
+}
+
+// Toggle menú lateral
+function toggleMenu() {
+    console.log('Toggle menu clicked');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+        sidebar.style.display = 'block';
+        console.log('Mostrando menú');
+    } else {
+        sidebar.style.display = 'none';
+        console.log('Ocultando menú');
+    }
+}
+
+// Cargar inquilinos desde la API
+function cargarInquilinos() {
+    fetch('/api/inquilinos/')
+        .then(response => response.json())
+        .then(data => {
+            inquilinos = data;
+            inquilinosFiltrados = [...inquilinos]; // Inicialmente todos los inquilinos
+            renderizarTablaInquilinos();
+            calcularTotales();
+        })
+        .catch(error => {
+            console.error('Error al cargar inquilinos:', error);
+            // Si no hay conexión con el backend, usar datos de ejemplo para demostración
+            cargarDatosEjemplo();
         });
 }
 
-// Función para actualizar la UI con la fecha de sincronización
-function actualizarFechaSincronizacionUI(fechaIso) {
-    try {
-        console.log('Actualizando UI con fecha:', fechaIso);
-        // Convertir la fecha ISO a objeto Date
-        const fechaObj = new Date(fechaIso);
-        
-        // Verificar que la fecha es válida
-        if (isNaN(fechaObj.getTime())) {
-            console.error('Fecha inválida:', fechaIso);
-            document.getElementById('fecha-sincronizacion').textContent = 'Formato de fecha inválido';
-            return;
-        }
-        
-        // Formatear la fecha para mostrarla
-        const opciones = { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'UTC'  // Asegurar que se interpreta como UTC
-        };
-        
-        const fechaFormateada = fechaObj.toLocaleDateString('es-ES', opciones);
-        console.log('Fecha formateada:', fechaFormateada);
-        
-        // Actualizar el elemento en el DOM
-        document.getElementById('fecha-sincronizacion').textContent = fechaFormateada;
-    } catch (error) {
-        console.error('Error al formatear fecha:', error);
-        document.getElementById('fecha-sincronizacion').textContent = 'Error al formatear fecha';
-    }
+// Función para sincronizar correos
+function sincronizarCorreos() {
+    // Mostrar modal de autenticación de Google
+    const modal = document.getElementById('modal-google-auth');
+    modal.style.display = 'block';
+
+    // Iniciar el proceso de autenticación con Google
+    fetch('/api/auth/url')
+        .then(response => response.json())
+        .then(data => {
+            // Redirigir a la URL de autenticación de Google
+            window.location.href = data.auth_url;
+        })
+        .catch(error => {
+            console.error('Error al obtener URL de autenticación:', error);
+            alert('Error al conectar con el servidor. Por favor, intenta de nuevo más tarde.');
+            cerrarModalAuth();
+        });
 }
 
 // Función para sincronizar correos después de la autenticación
@@ -124,19 +137,29 @@ function sincronizarCorreosAutenticado(credentials) {
     .then(data => {
         console.log('Sincronización completada:', data);
         
-        // Actualizar la fecha de sincronización con la fecha real de la API
-        if (data.fecha_sincronizacion) {
-            actualizarFechaSincronizacionUI(data.fecha_sincronizacion);
-        } else {
-            // Si no hay fecha en la respuesta, cargar la última fecha desde el servidor
-            cargarFechaSincronizacion();
-        }
-        
         // Mostrar mensaje de resultado
         if (data.success) {
             alert(`Sincronización completada. ${data.mensaje}`);
             // Recargar inquilinos para reflejar cambios
             cargarInquilinos();
+            
+            // Actualizar la fecha de última sincronización
+            fetch('/api/sync/last')
+                .then(response => response.json())
+                .then(fechaData => {
+                    if (fechaData) {
+                        // Convertir la fecha a un formato más amigable
+                        const fechaObj = new Date(fechaData);
+                        const opciones = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                        const fechaFormateada = fechaObj.toLocaleDateString('es-ES', opciones);
+                        
+                        // Actualizar el elemento en el DOM
+                        document.getElementById('fecha-sincronizacion').textContent = fechaFormateada;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar la fecha de última sincronización:', error);
+                });
         } else {
             alert(`Error en la sincronización: ${data.mensaje}`);
         }
