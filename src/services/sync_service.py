@@ -60,7 +60,7 @@ class SyncService:
             
             return {
                 "success": True,
-                "mensaje": f"Se sincronizaron {len(emails)} correos",
+                "mensaje": f"Se encontraron {len(emails)} transferencias",  # Mensaje modificado
                 "emails": len(emails),
                 "fecha_sincronizacion": now.isoformat()  # Incluir la fecha en la respuesta
             }
