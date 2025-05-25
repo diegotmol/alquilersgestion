@@ -16,21 +16,20 @@ class SyncService:
     def sync_emails(self, credentials, mes=None):
         """
         Sincroniza los correos electrónicos con Gmail y actualiza el estado de pago.
-
+        
         Args:
             credentials (dict): Credenciales de acceso a Gmail
             mes (str, optional): Mes para filtrar correos. Por defecto None.
-
+            
         Returns:
             dict: Resultado de la sincronización
         """
         try:
             # Mantener la consulta original rígida como lo solicitó el usuario
             query = "subject:Comprobante de pago"
-            
             if mes:
                 query += f" AND subject:{mes}"
-            
+                
             logger.info(f"Ejecutando búsqueda con query: {query}")
             
             # Obtener correos
@@ -38,8 +37,8 @@ class SyncService:
             
             logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda")
             
-            # Actualizar fecha de última sincronización
-            now = datetime.now()
+            # Actualizar fecha de última sincronización - USAR UTC EXPLÍCITAMENTE
+            now = datetime.now(datetime.timezone.utc)
             logger.info(f"Actualizando fecha de última sincronización a: {now}")
             
             # Buscar configuración existente o crear una nueva
@@ -77,11 +76,11 @@ class SyncService:
                 "mensaje": f"Error en sincronización: {str(e)}",
                 "emails": 0
             }
-
+    
     def get_last_sync(self):
         """
         Obtiene la fecha de la última sincronización.
-
+        
         Returns:
             dict: Información sobre la última sincronización
         """
@@ -95,7 +94,7 @@ class SyncService:
                     "success": True,
                     "fecha_sincronizacion": config.valor
                 }
-            
+                
             logger.info("No se encontró fecha de última sincronización")
             return {
                 "success": False,
@@ -104,14 +103,14 @@ class SyncService:
         except Exception as e:
             logger.error(f"Error al obtener última sincronización: {str(e)}")
             raise
-
+    
     def process_auth_callback(self, code):
         """
         Procesa el callback de autorización de OAuth2 con Gmail.
-
+        
         Args:
             code (str): Código de autorización
-
+            
         Returns:
             dict: Credenciales de acceso
         """
