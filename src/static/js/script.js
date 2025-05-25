@@ -5,8 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let añoActual = '';
     
     // Configurar el menú lateral
-    const menuToggle = document.getElementById('menu-toggle');
-    const menu = document.getElementById('menu');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const menu = document.querySelector('.menu');
     if (menuToggle && menu) {
         menuToggle.addEventListener('click', function() {
             menu.classList.toggle('active');
@@ -14,15 +14,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Configurar botones del menú
-    const btnVerPagos = document.getElementById('btn-ver-pagos');
-    const btnAnadirInquilinos = document.getElementById('btn-anadir-inquilinos');
+    const btnVerPagos = document.getElementById('Ver Pagos');
+    const btnAnadirInquilinos = document.getElementById('Añadir Inquilinos');
     
     if (btnVerPagos) {
         btnVerPagos.addEventListener('click', function() {
-            // Mostrar sección de pagos (ya visible por defecto)
-            // Puedes agregar lógica adicional si es necesario
-            
-            // Ocultar menú en móviles si es necesario
+            // Ocultar menú lateral
             if (menu && window.innerWidth < 768) {
                 menu.classList.remove('active');
             }
@@ -31,30 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (btnAnadirInquilinos) {
         btnAnadirInquilinos.addEventListener('click', function() {
-            // Mostrar modal de añadir inquilino o enfocar el formulario
-            const formulario = document.getElementById('form-inquilino');
-            if (formulario) {
-                const propietarioInput = document.getElementById('propietario');
-                if (propietarioInput) {
-                    propietarioInput.focus();
-                }
-            }
-            
-            // Mostrar modal si existe
+            // Mostrar modal de añadir inquilino
             const modal = document.getElementById('modal-inquilino');
             if (modal) {
                 modal.style.display = 'block';
-            }
-        });
-    }
-    
-    // Configurar botón de cancelar en modal
-    const btnCancelar = document.getElementById('btn-cancelar');
-    if (btnCancelar) {
-        btnCancelar.addEventListener('click', function() {
-            const modal = document.getElementById('modal-inquilino');
-            if (modal) {
-                modal.style.display = 'none';
             }
         });
     }
@@ -65,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mesActual = selectorMes.value;
         selectorMes.addEventListener('change', function() {
             mesActual = this.value;
-            actualizarEstadosPago();
+            cargarInquilinos();
         });
     }
     
@@ -75,52 +52,112 @@ document.addEventListener('DOMContentLoaded', function() {
         añoActual = selectorAño.value;
         selectorAño.addEventListener('change', function() {
             añoActual = this.value;
-            actualizarEstadosPago();
+            cargarInquilinos();
         });
     }
     
-    // Configurar botón de sincronizar
-    const btnSincronizar = document.getElementById('sincronizar-correos');
+    // Configurar botón de sincronizar (corregido para usar el ID exacto)
+    const btnSincronizar = document.querySelector('input[value="Sincronizar Correos"]');
     if (btnSincronizar) {
-        btnSincronizar.addEventListener('click', function() {
+        btnSincronizar.addEventListener('click', function(e) {
+            e.preventDefault();
             sincronizarCorreos(mesActual, añoActual);
         });
     }
     
-    // Función para actualizar estados de pago según mes y año seleccionados
-    function actualizarEstadosPago() {
-        // Obtener todas las filas de inquilinos
-        const filas = document.querySelectorAll('table tr');
+    // Cargar inquilinos al inicio
+    cargarInquilinos();
+    
+    // Función para cargar inquilinos según mes y año seleccionados
+    function cargarInquilinos() {
+        // Construir URL con parámetros de mes y año
+        let url = '/api/inquilinos';
+        const params = new URLSearchParams();
         
-        filas.forEach(fila => {
-            // Verificar si es una fila de inquilino (no encabezado)
-            const celdas = fila.querySelectorAll('td');
-            if (celdas.length > 0) {
-                // Obtener datos del inquilino
-                const propietario = celdas[0].textContent;
-                const propiedad = celdas[1].textContent;
-                
-                // Hacer una petición para obtener el estado de pago actual
-                fetch(`/api/estado_pago?propietario=${encodeURIComponent(propietario)}&propiedad=${encodeURIComponent(propiedad)}&mes=${mesActual}&año=${añoActual}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Actualizar el estado de pago en la fila
-                            const celdaEstado = celdas[4]; // Columna de estado de pago
-                            if (celdaEstado) {
-                                celdaEstado.textContent = data.estado_pago;
-                                celdaEstado.className = data.estado_pago === 'Pagado' ? 'pagado' : 'no-pagado';
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al obtener estado de pago:', error);
-                    });
+        if (mesActual) {
+            params.append('mes', mesActual);
+        }
+        
+        if (añoActual) {
+            params.append('año', añoActual);
+        }
+        
+        if (params.toString()) {
+            url += `?${params.toString()}`;
+        }
+        
+        // Realizar petición
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                actualizarTablaInquilinos(data);
+            })
+            .catch(error => {
+                console.error('Error al cargar inquilinos:', error);
+            });
+    }
+    
+    // Función para actualizar la tabla de inquilinos
+    function actualizarTablaInquilinos(inquilinos) {
+        // Limpiar tabla existente
+        const tabla = document.querySelector('table');
+        if (!tabla) return;
+        
+        // Mantener encabezados
+        const encabezados = tabla.querySelector('tr');
+        tabla.innerHTML = '';
+        if (encabezados) {
+            tabla.appendChild(encabezados);
+        }
+        
+        // Agregar filas de inquilinos
+        let total = 0;
+        let totalPagado = 0;
+        let totalNoPagado = 0;
+        
+        inquilinos.forEach(inquilino => {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-id', inquilino.id);
+            
+            // Determinar estado de pago según mes y año seleccionados
+            let estadoPago = 'No pagado';
+            if (mesActual && añoActual) {
+                const campo = `pago_${mesActual}_${añoActual}`;
+                if (inquilino[campo]) {
+                    estadoPago = inquilino[campo];
+                }
+            } else {
+                estadoPago = inquilino.estado_pago;
             }
+            
+            const monto = parseFloat(inquilino.monto);
+            total += monto;
+            
+            if (estadoPago === 'Pagado') {
+                totalPagado += monto;
+            } else {
+                totalNoPagado += monto;
+            }
+            
+            tr.innerHTML = `
+                <td>${inquilino.propietario}</td>
+                <td>${inquilino.propiedad}</td>
+                <td>${inquilino.telefono}</td>
+                <td>$${monto}</td>
+                <td>${estadoPago}</td>
+                <td>
+                    <input type="button" value="Eliminar" onclick="eliminarInquilino(${inquilino.id})">
+                    <input type="button" value="Editar" onclick="editarInquilino(${inquilino.id})">
+                </td>
+            `;
+            
+            tabla.appendChild(tr);
         });
         
         // Actualizar totales
-        actualizarTotales();
+        document.getElementById('total').textContent = `$${total}`;
+        document.getElementById('total-pagado').textContent = `$${totalPagado}`;
+        document.getElementById('total-no-pagado').textContent = `$${totalNoPagado}`;
     }
     
     // Función para sincronizar correos
@@ -142,10 +179,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Mostrar indicador de carga
-        const btnSincronizar = document.getElementById('sincronizar-correos');
+        const btnSincronizar = document.querySelector('input[value="Sincronizar Correos"]');
         if (btnSincronizar) {
             btnSincronizar.disabled = true;
-            btnSincronizar.textContent = 'Sincronizando...';
+            btnSincronizar.value = 'Sincronizando...';
         }
         
         // Realizar sincronización
@@ -159,8 +196,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         ultimaSincronizacion.textContent = new Date().toLocaleString();
                     }
                     
-                    // Actualizar estados de pago
-                    actualizarEstadosPago();
+                    // Recargar inquilinos
+                    cargarInquilinos();
                     
                     // Mostrar mensaje de éxito
                     alert('Sincronización completada con éxito');
@@ -176,57 +213,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Restaurar botón
                 if (btnSincronizar) {
                     btnSincronizar.disabled = false;
-                    btnSincronizar.textContent = 'Sincronizar Correos';
+                    btnSincronizar.value = 'Sincronizar Correos';
                 }
             });
     }
-    
-    // Función para actualizar totales
-    function actualizarTotales() {
-        let total = 0;
-        let totalPagado = 0;
-        let totalNoPagado = 0;
-        
-        // Obtener todas las filas de inquilinos
-        const filas = document.querySelectorAll('table tr');
-        
-        filas.forEach(fila => {
-            // Verificar si es una fila de inquilino (no encabezado)
-            const celdas = fila.querySelectorAll('td');
-            if (celdas.length > 0) {
-                // Obtener monto
-                const montoTexto = celdas[3].textContent;
-                const monto = parseFloat(montoTexto.replace('$', '').replace(',', ''));
+});
+
+// Funciones globales para editar y eliminar inquilinos
+function editarInquilino(id) {
+    // Obtener datos del inquilino
+    fetch(`/api/inquilinos/${id}`)
+        .then(response => response.json())
+        .then(inquilino => {
+            // Mostrar formulario de edición
+            const modal = document.getElementById('modal-inquilino');
+            if (modal) {
+                modal.style.display = 'block';
                 
-                if (!isNaN(monto)) {
-                    total += monto;
-                    
-                    // Verificar estado de pago
-                    const estadoPago = celdas[4].textContent;
-                    if (estadoPago === 'Pagado') {
-                        totalPagado += monto;
-                    } else {
-                        totalNoPagado += monto;
-                    }
+                // Llenar formulario con datos del inquilino
+                document.getElementById('inquilino-id').value = inquilino.id;
+                document.getElementById('propietario').value = inquilino.propietario;
+                document.getElementById('propiedad').value = inquilino.propiedad;
+                document.getElementById('telefono').value = inquilino.telefono;
+                document.getElementById('rut').value = inquilino.rut || '';
+                document.getElementById('monto').value = inquilino.monto;
+                
+                // Cambiar texto del botón
+                const btnAgregar = document.getElementById('btn-agregar');
+                if (btnAgregar) {
+                    btnAgregar.textContent = 'Actualizar';
                 }
             }
+        })
+        .catch(error => {
+            console.error('Error al obtener inquilino:', error);
+            alert('Error al obtener datos del inquilino');
         });
-        
-        // Actualizar elementos de totales
-        const elementoTotal = document.getElementById('total');
-        const elementoTotalPagado = document.getElementById('total-pagado');
-        const elementoTotalNoPagado = document.getElementById('total-no-pagado');
-        
-        if (elementoTotal) {
-            elementoTotal.textContent = `$${total}`;
-        }
-        
-        if (elementoTotalPagado) {
-            elementoTotalPagado.textContent = `$${totalPagado}`;
-        }
-        
-        if (elementoTotalNoPagado) {
-            elementoTotalNoPagado.textContent = `$${totalNoPagado}`;
-        }
+}
+
+function eliminarInquilino(id) {
+    if (confirm('¿Estás seguro de eliminar este inquilino?')) {
+        fetch(`/api/inquilinos/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Recargar inquilinos
+                location.reload();
+            } else {
+                alert('Error al eliminar inquilino');
+            }
+        })
+        .catch(error => {
+            console.error('Error al eliminar inquilino:', error);
+            alert('Error al eliminar inquilino');
+        });
     }
-});
+}
