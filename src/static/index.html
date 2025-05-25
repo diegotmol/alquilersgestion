@@ -7,109 +7,130 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <header>
-        <h1>Gestión de Pagos de Alquileres</h1>
-    </header>
+    <!-- Menú lateral -->
+    <div class="menu" id="menu">
+        <h2>Menú</h2>
+        <button id="btn-ver-pagos">Ver Pagos</button>
+        <button id="btn-anadir-inquilinos">Añadir Inquilinos</button>
+    </div>
     
-    <main>
-        <section class="sincronizacion">
-            <h2>Sincronización de Correos</h2>
-            <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
-            <button id="btn-sincronizar" class="btn-principal">Sincronizar Correos</button>
-            <p>Última sincronización: <span id="fecha-sincronizacion">No hay registros</span></p>
-            
-            <div class="filtros">
-                <label for="mes">Seleccionar Mes:</label>
-                <select id="mes">
-                    <option value="01">Enero</option>
-                    <option value="02">Febrero</option>
-                    <option value="03">Marzo</option>
-                    <option value="04">Abril</option>
-                    <option value="05">Mayo</option>
-                    <option value="06">Junio</option>
-                    <option value="07">Julio</option>
-                    <option value="08">Agosto</option>
-                    <option value="09">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
-                
-                <!-- Selector de año -->
-                <label for="año">Seleccionar Año:</label>
-                <select id="año">
-                    <option value="2025">2025</option>
-                    <option value="2026">2026</option>
-                </select>
-            </div>
-        </section>
+    <!-- Botón flotante para menú en móvil -->
+    <button class="menu-toggle" id="menu-toggle">☰</button>
+    
+    <!-- Contenido principal -->
+    <div class="main-content">
+        <header>
+            <h1>Gestión de Pagos de Alquileres</h1>
+        </header>
         
-        <section class="inquilinos">
-            <h2>Inquilinos</h2>
+        <main>
+            <section class="sincronizacion">
+                <h2>Sincronización de Correos</h2>
+                <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
+                <button id="btn-sincronizar" class="btn-principal">Sincronizar Correos</button>
+                <p>Última sincronización: <span id="fecha-sincronizacion">No hay registros</span></p>
+                
+                <div class="filtros">
+                    <label for="mes">Seleccionar Mes:</label>
+                    <select id="mes">
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
+                        <option value="07">Julio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                    
+                    <!-- Selector de año -->
+                    <label for="año">Seleccionar Año:</label>
+                    <select id="año">
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+            </section>
             
-            <div class="formulario-container">
-                <h3>Agregar/Editar Inquilino</h3>
-                <form id="form-inquilino">
-                    <input type="hidden" id="id" name="id">
-                    
-                    <div class="form-group">
-                        <label for="propietario">Propietario:</label>
-                        <input type="text" id="propietario" name="propietario" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="propiedad">Propiedad:</label>
-                        <input type="text" id="propiedad" name="propiedad" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="telefono">Teléfono:</label>
-                        <input type="text" id="telefono" name="telefono" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="rut">RUT:</label>
-                        <input type="text" id="rut" name="rut">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="monto">Monto:</label>
-                        <input type="number" id="monto" name="monto" required>
-                    </div>
-                    
-                    <button type="submit" id="btn-guardar" class="btn-principal">Agregar</button>
-                </form>
-            </div>
-            
-            <div class="tabla-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Propietario</th>
-                            <th>Propiedad</th>
-                            <th>Número de Teléfono</th>
-                            <th>Monto a Pagar</th>
-                            <th>Estado de pago</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inquilinos-body">
-                        <!-- Se llenará dinámicamente con JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="totales">
-                <p>Total: <span id="total">$0</span></p>
-                <p>Total Pagado: <span id="total-pagado">$0</span></p>
-                <p>Total No Pagado: <span id="total-no-pagado">$0</span></p>
-            </div>
-        </section>
-    </main>
+            <section class="inquilinos">
+                <h2>Inquilinos</h2>
+                
+                <div class="formulario-container">
+                    <h3>Agregar/Editar Inquilino</h3>
+                    <form id="form-inquilino">
+                        <input type="hidden" id="id" name="id">
+                        
+                        <div class="form-group">
+                            <label for="propietario">Propietario:</label>
+                            <input type="text" id="propietario" name="propietario" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="propiedad">Propiedad:</label>
+                            <input type="text" id="propiedad" name="propiedad" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telefono">Teléfono:</label>
+                            <input type="text" id="telefono" name="telefono" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rut">RUT:</label>
+                            <input type="text" id="rut" name="rut">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="monto">Monto:</label>
+                            <input type="number" id="monto" name="monto" required>
+                        </div>
+                        
+                        <button type="submit" id="btn-guardar" class="btn-principal">Agregar</button>
+                    </form>
+                </div>
+                
+                <div class="tabla-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Propietario</th>
+                                <th>Propiedad</th>
+                                <th>Número de Teléfono</th>
+                                <th>Monto a Pagar</th>
+                                <th>Estado de pago</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inquilinos-body">
+                            <!-- Se llenará dinámicamente con JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="totales">
+                    <p>Total: <span id="total">$0</span></p>
+                    <p>Total Pagado: <span id="total-pagado">$0</span></p>
+                    <p>Total No Pagado: <span id="total-no-pagado">$0</span></p>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 Gestión de Pagos de Alquileres</p>
+        </footer>
+    </div>
     
-    <footer>
-        <p>&copy; 2025 Gestión de Pagos de Alquileres</p>
-    </footer>
+    <!-- Modal para agregar/editar inquilino (opcional, si prefieres usar un modal en lugar del formulario en línea) -->
+    <div id="modal-inquilino" class="modal">
+        <div class="modal-content">
+            <h2>Añadir Inquilino</h2>
+            <!-- Contenido del modal -->
+        </div>
+    </div>
     
     <script src="/static/js/script.js"></script>
 </body>
