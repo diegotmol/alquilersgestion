@@ -1,6 +1,5 @@
 """
-Modificación de main.py para incluir la actualización automática de columnas de pagos mensuales.
-Este archivo debe reemplazar el contenido actual de src/main.py.
+Aplicación principal de Flask.
 """
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
@@ -17,9 +16,6 @@ from src.routes.inquilinos import inquilinos_bp
 from src.routes.sync import sync_bp
 from src.routes.user import user_bp
 from src.models.database import db
-
-# Importar función para actualizar columnas de pagos
-from actualizar_columnas_auto import actualizar_columnas_pagos
 
 app = Flask(__name__)
 
@@ -137,19 +133,11 @@ def diagnostico_db():
             "db_url": app.config['SQLALCHEMY_DATABASE_URI'][:20] + "..."
         }), 500
 
-# Crear las tablas si no existen y actualizar columnas de pagos
+# Crear las tablas si no existen
 with app.app_context():
     try:
-        # Crear tablas si no existen
         db.create_all()
         logger.info("Base de datos inicializada correctamente")
-        
-        # Actualizar columnas de pagos mensuales
-        resultado = actualizar_columnas_pagos(db)
-        if resultado:
-            logger.info("Columnas de pagos mensuales actualizadas correctamente")
-        else:
-            logger.warning("No se pudieron actualizar las columnas de pagos mensuales")
     except Exception as e:
         logger.error(f"Error al inicializar la base de datos: {str(e)}")
 
