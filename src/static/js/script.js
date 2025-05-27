@@ -90,17 +90,15 @@ function inicializarApp() {
     cargarInquilinos();
 }
 
-// Toggle menú lateral
+// Toggle menú lateral - MODIFICADO para comportamiento push
 function toggleMenu() {
     console.log('Toggle menu clicked');
     const sidebar = document.getElementById('sidebar');
-    if (sidebar.style.display === 'none' || sidebar.style.display === '') {
-        sidebar.style.display = 'block';
-        console.log('Mostrando menú');
-    } else {
-        sidebar.style.display = 'none';
-        console.log('Ocultando menú');
-    }
+    
+    // Alternar la clase active en el sidebar
+    sidebar.classList.toggle('active');
+    
+    console.log('Menú lateral toggled');
 }
 
 // Cargar inquilinos desde la API
@@ -213,13 +211,8 @@ function calcularTotales() {
 function verPagos() {
     // Única función: ocultar/mostrar el menú lateral izquierdo
     const sidebar = document.getElementById('sidebar');
-    if (sidebar.style.display === 'none' || sidebar.style.display === '') {
-        sidebar.style.display = 'block';
-        console.log('Mostrando menú lateral izquierdo');
-    } else {
-        sidebar.style.display = 'none';
-        console.log('Ocultando menú lateral izquierdo');
-    }
+    sidebar.classList.toggle('active');
+    console.log('Menú lateral toggled desde Ver Pagos');
 }
 
 // Función para sincronizar correos
