@@ -1,5 +1,6 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
+Versión modificada para usar una consulta más efectiva y compatible con los correos del Banco de Chile.
 """
 import logging
 from datetime import datetime
@@ -33,37 +34,38 @@ class SyncService:
             dict: Resultado de la sincronización
         """
         try:
-            # Usar búsqueda por remitente en lugar de asunto
+            # Modificar la consulta para buscar por remitente en lugar de asunto
             query = "from:serviciodetransferencias@bancochile.cl"
             
-            logger.info(f"Iniciando sincronización con credenciales: {credentials.keys() if credentials else 'No hay credenciales'}")
-            logger.info(f"Mes seleccionado: {mes}, Año seleccionado: {año}")
             logger.info(f"Ejecutando búsqueda con query: {query}")
             
             # Obtener correos
             emails = self.gmail_service.get_emails(credentials, query=query)
             
             logger.info(f"Se encontraron {len(emails)} correos del servicio de transferencias.")
-            if len(emails) > 0:
-                logger.info(f"Muestra del primer correo: {list(emails[0].keys())}")
+            
+            # Si se especificó un mes, filtrar los correos por la fecha extraída
+            if mes and mes != 'todos':
+                emails_filtrados = []
+                for email in emails:
+                    transfer_data = self.email_parser.parse_banco_chile_email(email)
+                    if transfer_data and 'mes' in transfer_data:
+                        # Convertir mes a formato de dos dígitos para comparar
+                        mes_correo = f"{transfer_data['mes']:02d}"
+                        if mes_correo == mes:
+                            emails_filtrados.append(email)
+                
+                logger.info(f"Después de filtrar por mes {mes}, quedan {len(emails_filtrados)} correos")
+                emails = emails_filtrados
             
             # Procesar cada correo para actualizar pagos
             pagos_actualizados = 0
             for email in emails:
                 # Parsear el correo para extraer información
                 transfer_data = self.email_parser.parse_banco_chile_email(email)
+                logger.info(f"Datos extraídos del correo: {transfer_data}")
                 
                 if transfer_data:
-                    logger.info(f"Datos extraídos del correo: {transfer_data}")
-                    
-                    # Si se especificó un mes, verificar si coincide con el mes de la transferencia
-                    if mes and mes != 'todos' and 'fecha' in transfer_data:
-                        mes_transferencia = f"{transfer_data['fecha'].month:02d}"
-                        logger.info(f"Comparando mes seleccionado: {mes} con mes de transferencia: {mes_transferencia}")
-                        if mes != mes_transferencia:
-                            logger.info(f"Mes no coincide, saltando este correo")
-                            continue
-                    
                     # Actualizar el estado de pago del inquilino correspondiente
                     actualizado = self._actualizar_pago_inquilino(transfer_data, mes, año)
                     if actualizado:
@@ -126,45 +128,48 @@ class SyncService:
         """
         try:
             # Verificar que tenemos los datos necesarios
-            logger.info(f"Datos de transferencia completos: {transfer_data}")
-            
             if not transfer_data or 'emisor' not in transfer_data:
                 logger.warning("Datos de transferencia incompletos, no se puede actualizar pago")
                 return False
             
             # Obtener el nombre del emisor (quien hizo la transferencia)
-            emisor_original = transfer_data.get('emisor', '').strip()
-            emisor = emisor_original.lower()
-            logger.info(f"Emisor original: '{emisor_original}', normalizado: '{emisor}'")
+            emisor = transfer_data.get('emisor', '').strip().lower()
+            logger.info(f"Emisor original: '{emisor}'")
             
             if not emisor:
                 logger.warning("Emisor no encontrado en los datos de transferencia")
                 return False
             
-            # Buscar inquilino por nombre
+            # Buscar inquilino por nombre con comparación más robusta
             inquilinos = Inquilino.query.all()
             logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
-            
             inquilino_encontrado = None
+            
+            # Normalizar el emisor (quitar espacios extras)
+            emisor_norm = ' '.join(emisor.split()).lower()
+            logger.info(f"Emisor normalizado: '{emisor_norm}'")
+            
+            # Primero intentar coincidencia exacta
             for inquilino in inquilinos:
-                nombre_original = inquilino.propietario
-                nombre_inquilino = nombre_original.lower()
-                logger.info(f"Comparando con socio: '{nombre_original}', normalizado: '{nombre_inquilino}'")
+                nombre_norm = ' '.join(inquilino.propietario.split()).lower()
+                logger.info(f"Comparando con: '{nombre_norm}' (ID: {inquilino.id})")
                 
-                # Probar comparación exacta primero
-                if nombre_inquilino == emisor:
-                    logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {nombre_original}")
+                if emisor_norm == nombre_norm:
+                    logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {inquilino.propietario}")
                     inquilino_encontrado = inquilino
                     break
-                    
-                # Si no hay coincidencia exacta, probar parcial
-                if nombre_inquilino in emisor or emisor in nombre_inquilino:
-                    logger.info(f"Coincidencia parcial encontrada: {nombre_original}")
-                    inquilino_encontrado = inquilino
-                    break
+            
+            # Si no hay coincidencia exacta, intentar coincidencia parcial
+            if not inquilino_encontrado:
+                for inquilino in inquilinos:
+                    nombre_norm = ' '.join(inquilino.propietario.split()).lower()
+                    if nombre_norm in emisor_norm or emisor_norm in nombre_norm:
+                        logger.info(f"¡Coincidencia parcial! Socio: {inquilino.propietario}")
+                        inquilino_encontrado = inquilino
+                        break
             
             if not inquilino_encontrado:
-                logger.warning(f"No se encontró socio para el emisor: {emisor_original}")
+                logger.warning(f"No se encontró socio para el emisor: '{emisor}'")
                 return False
             
             # Determinar el mes y año para la columna a actualizar
