@@ -1,6 +1,6 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión con debugging avanzado para resolver problemas de matching.
+Versión final con filtrado por fecha de recepción y matching flexible por nombre y monto.
 """
 import logging
 import re
@@ -46,18 +46,37 @@ class SyncService:
             
             logger.info(f"Se encontraron {len(emails)} correos del servicio de transferencias.")
             
-            # Si se especificó un mes, filtrar los correos por la fecha extraída
+            # Si se especificó un mes, filtrar los correos por la fecha de RECEPCIÓN
             emails_filtrados = []
             if mes and mes != 'todos':
-                logger.info(f"Filtrando correos por mes: {mes}")
+                logger.info(f"Filtrando correos por mes seleccionado: {mes}")
                 for email in emails:
+                    # Extraer la fecha de recepción del correo
+                    fecha_recepcion = None
+                    if 'internalDate' in email:
+                        try:
+                            # internalDate es un timestamp en milisegundos
+                            timestamp_ms = int(email['internalDate'])
+                            fecha_recepcion = datetime.fromtimestamp(timestamp_ms/1000.0)
+                            mes_recepcion = f"{fecha_recepcion.month:02d}"
+                            
+                            logger.info(f"Correo recibido en fecha: {fecha_recepcion}, mes: {mes_recepcion}")
+                            
+                            # Filtrar por mes de recepción
+                            if mes_recepcion == mes:
+                                logger.info(f"Correo coincide con el mes seleccionado: {mes}")
+                                emails_filtrados.append(email)
+                                continue
+                        except Exception as e:
+                            logger.error(f"Error al procesar fecha de recepción: {str(e)}")
+                    
+                    # Si no se pudo extraer la fecha de recepción, intentar con la fecha de la transferencia
                     transfer_data = self.email_parser.parse_banco_chile_email(email)
                     if transfer_data and 'mes' in transfer_data:
-                        # Convertir mes a formato de dos dígitos para comparar
                         mes_correo = f"{transfer_data['mes']:02d}"
-                        logger.info(f"Correo con mes: {mes_correo}, comparando con mes seleccionado: {mes}")
+                        logger.info(f"Usando fecha de transferencia, mes: {mes_correo}")
                         if mes_correo == mes:
-                            logger.info(f"Correo coincide con el mes seleccionado: {mes}")
+                            logger.info(f"Correo coincide con el mes seleccionado por fecha de transferencia: {mes}")
                             emails_filtrados.append(email)
                 
                 logger.info(f"Después de filtrar por mes {mes}, quedan {len(emails_filtrados)} correos")
@@ -119,10 +138,9 @@ class SyncService:
                 "pagos_actualizados": 0
             }
     
-    def normalizar_texto_extremo(self, texto):
+    def normalizar_texto(self, texto):
         """
-        Normalización extremadamente agresiva para comparación de textos.
-        Elimina todos los caracteres no alfanuméricos y convierte a ASCII puro.
+        Normalización de texto para comparación flexible.
         
         Args:
             texto (str): Texto a normalizar
@@ -143,30 +161,9 @@ class SyncService:
         texto = re.sub(r'[^a-z0-9]', '', texto)
         
         # Mostrar el resultado de la normalización
-        logger.info(f"Texto original: '{texto}', normalizado: '{texto}', hex: {texto.encode('utf-8').hex()}")
+        logger.info(f"Texto original: '{texto}', normalizado: '{texto}'")
         
         return texto
-    
-    def normalizar_rut(self, rut):
-        """
-        Normaliza un RUT eliminando puntos, guiones y espacios.
-        
-        Args:
-            rut (str): RUT a normalizar
-            
-        Returns:
-            str: RUT normalizado
-        """
-        if not rut:
-            return ""
-        
-        # Eliminar puntos, guiones y espacios
-        rut = re.sub(r'[.\-\s]', '', rut)
-        
-        # Convertir a minúsculas (por si el dígito verificador es 'k')
-        rut = rut.lower()
-        
-        return rut
     
     def _actualizar_pago_inquilino(self, transfer_data, mes_seleccionado=None, año_seleccionado=None):
         """
@@ -200,75 +197,35 @@ class SyncService:
             inquilino_encontrado = None
             
             # Normalizar el emisor
-            emisor_norm = self.normalizar_texto_extremo(emisor)
-            logger.info(f"Emisor normalizado: '{emisor_norm}', hex: {emisor_norm.encode('utf-8').hex()}")
+            emisor_norm = self.normalizar_texto(emisor)
+            logger.info(f"Emisor normalizado: '{emisor_norm}'")
             
-            # Obtener el RUT del destinatario para matching alternativo
-            rut_destinatario = transfer_data.get('rut_destinatario', '')
-            rut_destinatario_norm = self.normalizar_rut(rut_destinatario)
-            logger.info(f"RUT destinatario: '{rut_destinatario}', normalizado: '{rut_destinatario_norm}'")
+            # Obtener el monto de la transferencia
+            monto_transferencia = transfer_data.get('monto', 0)
+            logger.info(f"Monto de la transferencia: {monto_transferencia}")
             
-            # MÉTODO 1: Intentar coincidencia exacta por nombre normalizado
+            # Intentar coincidencia por nombre normalizado (flexible)
             for inquilino in inquilinos:
                 nombre_inquilino = inquilino.propietario
                 logger.info(f"Comparando con socio: '{nombre_inquilino}' (ID: {inquilino.id})")
                 
-                nombre_norm = self.normalizar_texto_extremo(nombre_inquilino)
-                logger.info(f"Nombre socio normalizado: '{nombre_norm}', hex: {nombre_norm.encode('utf-8').hex()}")
+                nombre_norm = self.normalizar_texto(nombre_inquilino)
+                logger.info(f"Nombre socio normalizado: '{nombre_norm}'")
                 
-                # Comparación byte a byte
-                logger.info(f"COMPARACIÓN EXACTA: '{emisor_norm}' vs '{nombre_norm}'")
-                logger.info(f"¿Son iguales? {emisor_norm == nombre_norm}")
-                
-                # Mostrar comparación carácter por carácter
-                if len(emisor_norm) == len(nombre_norm):
-                    for i, (c1, c2) in enumerate(zip(emisor_norm, nombre_norm)):
-                        if c1 != c2:
-                            logger.info(f"Diferencia en posición {i}: '{c1}' ({ord(c1)}) vs '{c2}' ({ord(c2)})")
-                
-                if emisor_norm == nombre_norm:
-                    logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {inquilino.propietario}")
-                    inquilino_encontrado = inquilino
-                    break
-            
-            # MÉTODO 2: Si no hay coincidencia exacta, intentar coincidencia parcial
-            if not inquilino_encontrado:
-                logger.info("No se encontró coincidencia exacta, intentando coincidencia parcial...")
-                for inquilino in inquilinos:
-                    nombre_inquilino = inquilino.propietario
-                    nombre_norm = self.normalizar_texto_extremo(nombre_inquilino)
+                # Comparación flexible: verificar si una cadena está contenida en la otra
+                if nombre_norm in emisor_norm or emisor_norm in nombre_norm:
+                    logger.info(f"¡COINCIDENCIA DE NOMBRE! Socio encontrado: {inquilino.propietario}")
                     
-                    # Verificar si una cadena está contenida en la otra
-                    if nombre_norm in emisor_norm or emisor_norm in nombre_norm:
-                        logger.info(f"¡Coincidencia parcial! Socio: {inquilino.propietario}")
+                    # Verificar si el monto coincide (obligatorio)
+                    if float(inquilino.monto) == float(monto_transferencia):
+                        logger.info(f"¡COINCIDENCIA DE MONTO! Monto del socio: {inquilino.monto}, Monto de transferencia: {monto_transferencia}")
                         inquilino_encontrado = inquilino
                         break
-            
-            # MÉTODO 3: Intentar coincidencia por RUT
-            if not inquilino_encontrado and rut_destinatario_norm:
-                logger.info("No se encontró coincidencia por nombre, intentando por RUT...")
-                for inquilino in inquilinos:
-                    # Verificar si el inquilino tiene RUT
-                    if inquilino.rut:
-                        rut_inquilino = self.normalizar_rut(inquilino.rut)
-                        logger.info(f"Comparando RUT: '{rut_destinatario_norm}' vs '{rut_inquilino}'")
-                        
-                        if rut_destinatario_norm == rut_inquilino:
-                            logger.info(f"¡COINCIDENCIA POR RUT! Socio encontrado: {inquilino.propietario}")
-                            inquilino_encontrado = inquilino
-                            break
-            
-            # MÉTODO 4: Forzar coincidencia para "Diego Alfredo Tapia"
-            if not inquilino_encontrado and "diego" in emisor_norm.lower() and "tapia" in emisor_norm.lower():
-                logger.info("Forzando coincidencia para 'Diego Alfredo Tapia'...")
-                for inquilino in inquilinos:
-                    if "diego" in self.normalizar_texto_extremo(inquilino.propietario) and "tapia" in self.normalizar_texto_extremo(inquilino.propietario):
-                        logger.info(f"¡COINCIDENCIA FORZADA! Socio encontrado: {inquilino.propietario}")
-                        inquilino_encontrado = inquilino
-                        break
+                    else:
+                        logger.warning(f"El monto de la transferencia ({monto_transferencia}) no coincide con el monto del socio ({inquilino.monto})")
             
             if not inquilino_encontrado:
-                logger.warning(f"No se encontró socio para el emisor: '{emisor}'")
+                logger.warning(f"No se encontró socio para el emisor: '{emisor}' con monto: {monto_transferencia}")
                 return False
             
             # Determinar el mes y año para la columna a actualizar
