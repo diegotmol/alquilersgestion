@@ -1,6 +1,7 @@
 """
 Servicio para analizar y extraer información de correos electrónicos del Banco de Chile.
 Versión optimizada específicamente para el formato actual de correos del Banco de Chile.
+Con corrección para el parseo de fechas.
 """
 import re
 import base64
@@ -172,7 +173,18 @@ class EmailParser:
                                 fecha_text = fecha_td.get_text().strip()
                                 logger.info(f"Fecha encontrada en tabla: {fecha_text}")
                                 try:
+                                    # CORRECCIÓN: Verificar y corregir el año si es necesario
                                     fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
+                                    
+                                    # Extraer el año directamente del texto para verificar
+                                    año_match = re.search(r'/(\d{4})$', fecha_text)
+                                    if año_match:
+                                        año_correcto = int(año_match.group(1))
+                                        # Si el año parseado es diferente al año en el texto, corregirlo
+                                        if fecha_obj.year != año_correcto:
+                                            logger.info(f"Corrigiendo año de {fecha_obj.year} a {año_correcto}")
+                                            fecha_obj = fecha_obj.replace(year=año_correcto)
+                                    
                                     logger.info(f"Fecha parseada: {fecha_obj}")
                                     break
                                 except Exception as e:
@@ -191,7 +203,18 @@ class EmailParser:
                                 fecha_text = match.group(1)
                                 logger.info(f"Posible fecha encontrada: {fecha_text}")
                                 try:
+                                    # CORRECCIÓN: Verificar y corregir el año si es necesario
                                     fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
+                                    
+                                    # Extraer el año directamente del texto para verificar
+                                    año_match = re.search(r'/(\d{4})$', fecha_text)
+                                    if año_match:
+                                        año_correcto = int(año_match.group(1))
+                                        # Si el año parseado es diferente al año en el texto, corregirlo
+                                        if fecha_obj.year != año_correcto:
+                                            logger.info(f"Corrigiendo año de {fecha_obj.year} a {año_correcto}")
+                                            fecha_obj = fecha_obj.replace(year=año_correcto)
+                                    
                                     logger.info(f"Fecha parseada: {fecha_obj}")
                                     break
                                 except Exception as e:
