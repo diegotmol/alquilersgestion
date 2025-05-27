@@ -319,22 +319,17 @@ class SyncService:
                         db.session.commit()
                         logger.info(f"Columna {columna} creada correctamente")
                     except Exception as e:
-                        logger.error(f"Error al crear la columna {columna}: {str(e)}")
+                        logger.error(f"Error al crear columna {columna}: {str(e)}")
                         return False
                 
-                # Actualizar el estado de pago en la columna correspondiente
-                query = text(f"UPDATE inquilinos SET {columna} = 'Pagado' WHERE id = :id")
-                db.session.execute(query, {"id": inquilino_encontrado.id})
+                # Actualizar el estado de pago
+                setattr(inquilino_encontrado, columna, "Pagado")
                 db.session.commit()
-                
-                logger.info(f"Actualizado estado de pago para {inquilino_encontrado.propietario} en columna {columna}")
+                logger.info(f"Estado de pago actualizado para {inquilino_encontrado.propietario}, columna {columna}")
                 return True
-                
             except Exception as e:
                 logger.error(f"Error al actualizar estado de pago: {str(e)}")
-                db.session.rollback()
                 return False
-                
         except Exception as e:
             logger.error(f"Error en _actualizar_pago_inquilino: {str(e)}")
             return False
@@ -344,24 +339,23 @@ class SyncService:
         Obtiene la fecha de la última sincronización.
         
         Returns:
-            dict: Información sobre la última sincronización
+            dict: Información de la última sincronización
         """
         try:
-            # Buscar la configuración por clave
             config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
-            
-            if config and config.valor:
-                logger.info(f"Fecha de última sincronización encontrada: {config.valor}")
+            if config:
+                fecha_str = config.valor
+                logger.info(f"Fecha de última sincronización encontrada: {fecha_str}")
                 return {
                     "success": True,
-                    "fecha_sincronizacion": config.valor
+                    "fecha_sincronizacion": fecha_str
                 }
-                
-            logger.info("No se encontró fecha de última sincronización")
-            return {
-                "success": False,
-                "mensaje": "No hay registros de sincronización previa"
-            }
+            else:
+                logger.info("No hay registros de última sincronización")
+                return {
+                    "success": False,
+                    "mensaje": "No hay registros de sincronización previa"
+                }
         except Exception as e:
             logger.error(f"Error al obtener última sincronización: {str(e)}")
             raise
