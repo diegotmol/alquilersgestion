@@ -1,3 +1,8 @@
+import base64
+import re
+import logging
+from datetime import datetime
+from bs4 import BeautifulSoup
 def parse_banco_chile_email(self, email):
     try:
         logger.info(f"Iniciando parseo de correo con ID: {email.get('id', 'sin ID')}")
