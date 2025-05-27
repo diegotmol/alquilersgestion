@@ -33,17 +33,19 @@ class SyncService:
             dict: Resultado de la sincronización
         """
         try:
-            # Mantener la consulta original rígida como lo solicitó el usuario
-            query = "subject:Aviso de transferencia de fondos"
-            if mes:
-                query += f" AND subject:{mes}"
-                
+            # Usar búsqueda por remitente en lugar de asunto
+            query = "from:serviciodetransferencias@bancochile.cl"
+            
+            logger.info(f"Iniciando sincronización con credenciales: {credentials.keys() if credentials else 'No hay credenciales'}")
+            logger.info(f"Mes seleccionado: {mes}, Año seleccionado: {año}")
             logger.info(f"Ejecutando búsqueda con query: {query}")
             
             # Obtener correos
             emails = self.gmail_service.get_emails(credentials, query=query)
             
-            logger.info(f"Se encontraron {len(emails)} correos que coinciden con la búsqueda.")
+            logger.info(f"Se encontraron {len(emails)} correos del servicio de transferencias.")
+            if len(emails) > 0:
+                logger.info(f"Muestra del primer correo: {list(emails[0].keys())}")
             
             # Procesar cada correo para actualizar pagos
             pagos_actualizados = 0
@@ -52,6 +54,16 @@ class SyncService:
                 transfer_data = self.email_parser.parse_banco_chile_email(email)
                 
                 if transfer_data:
+                    logger.info(f"Datos extraídos del correo: {transfer_data}")
+                    
+                    # Si se especificó un mes, verificar si coincide con el mes de la transferencia
+                    if mes and mes != 'todos' and 'fecha' in transfer_data:
+                        mes_transferencia = f"{transfer_data['fecha'].month:02d}"
+                        logger.info(f"Comparando mes seleccionado: {mes} con mes de transferencia: {mes_transferencia}")
+                        if mes != mes_transferencia:
+                            logger.info(f"Mes no coincide, saltando este correo")
+                            continue
+                    
                     # Actualizar el estado de pago del inquilino correspondiente
                     actualizado = self._actualizar_pago_inquilino(transfer_data, mes, año)
                     if actualizado:
@@ -114,30 +126,45 @@ class SyncService:
         """
         try:
             # Verificar que tenemos los datos necesarios
+            logger.info(f"Datos de transferencia completos: {transfer_data}")
+            
             if not transfer_data or 'emisor' not in transfer_data:
                 logger.warning("Datos de transferencia incompletos, no se puede actualizar pago")
                 return False
             
             # Obtener el nombre del emisor (quien hizo la transferencia)
-            emisor = transfer_data.get('emisor', '').strip().lower()
+            emisor_original = transfer_data.get('emisor', '').strip()
+            emisor = emisor_original.lower()
+            logger.info(f"Emisor original: '{emisor_original}', normalizado: '{emisor}'")
             
             if not emisor:
                 logger.warning("Emisor no encontrado en los datos de transferencia")
                 return False
             
-            # Buscar inquilino por nombre (comparación parcial e insensible a mayúsculas/minúsculas)
+            # Buscar inquilino por nombre
             inquilinos = Inquilino.query.all()
-            inquilino_encontrado = None
+            logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
             
+            inquilino_encontrado = None
             for inquilino in inquilinos:
-                nombre_inquilino = inquilino.propietario.lower()
-                # Verificar si el nombre del inquilino está en el emisor o viceversa
+                nombre_original = inquilino.propietario
+                nombre_inquilino = nombre_original.lower()
+                logger.info(f"Comparando con socio: '{nombre_original}', normalizado: '{nombre_inquilino}'")
+                
+                # Probar comparación exacta primero
+                if nombre_inquilino == emisor:
+                    logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {nombre_original}")
+                    inquilino_encontrado = inquilino
+                    break
+                    
+                # Si no hay coincidencia exacta, probar parcial
                 if nombre_inquilino in emisor or emisor in nombre_inquilino:
+                    logger.info(f"Coincidencia parcial encontrada: {nombre_original}")
                     inquilino_encontrado = inquilino
                     break
             
             if not inquilino_encontrado:
-                logger.warning(f"No se encontró inquilino para el emisor: {emisor}")
+                logger.warning(f"No se encontró socio para el emisor: {emisor_original}")
                 return False
             
             # Determinar el mes y año para la columna a actualizar
@@ -145,17 +172,20 @@ class SyncService:
                 # Usar el mes y año de la transferencia
                 mes = transfer_data['fecha'].month
                 año = transfer_data['fecha'].year
+                logger.info(f"Usando fecha de transferencia: {mes}/{año}")
             else:
                 # Si no hay fecha en la transferencia, usar el mes y año seleccionados
                 # o el mes y año actuales como respaldo
                 mes = int(mes_seleccionado) if mes_seleccionado and mes_seleccionado != 'todos' else datetime.now().month
                 año = int(año_seleccionado) if año_seleccionado else datetime.now().year
+                logger.info(f"Usando fecha seleccionada/actual: {mes}/{año}")
             
             # Formatear el mes con dos dígitos
             mes_str = f"{mes:02d}"
             
             # Nombre de la columna a actualizar
             columna = f"pago_{mes_str}_{año}"
+            logger.info(f"Intentando actualizar columna: {columna}")
             
             # Verificar si la columna existe
             try:
@@ -163,6 +193,7 @@ class SyncService:
                 # Primero verificar si la columna existe
                 inspector = db.inspect(db.engine)
                 columnas_existentes = [col['name'] for col in inspector.get_columns('inquilinos')]
+                logger.info(f"Columnas existentes: {columnas_existentes}")
                 
                 if columna not in columnas_existentes:
                     logger.warning(f"La columna {columna} no existe en la tabla inquilinos")
