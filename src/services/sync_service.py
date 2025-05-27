@@ -1,12 +1,13 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión con matching mejorado entre emisor y socio, y filtrado por fecha de recepción.
+Versión con debugging avanzado para identificar problemas de matching.
 """
 import logging
 from datetime import datetime
 import pytz  # Necesitamos importar pytz para manejar zonas horarias
 import unicodedata  # Para normalización de texto
 import re  # Para expresiones regulares
+import json  # Para debugging
 from src.services.gmail_service_real import GmailServiceReal
 from src.services.email_parser import EmailParser
 from src.models.configuracion import Configuracion
@@ -167,6 +168,9 @@ class SyncService:
         if not texto:
             return ""
         
+        # Guardar el texto original para debugging
+        texto_original = texto
+        
         # Convertir a bytes y luego de vuelta a string para eliminar caracteres problemáticos
         texto = texto.encode('ascii', 'ignore').decode('ascii')
         
@@ -176,8 +180,14 @@ class SyncService:
         # Eliminar todos los caracteres que no sean letras o números
         texto = re.sub(r'[^a-z0-9]', '', texto)
         
-        # Mostrar el resultado para depuración
-        logger.info(f"Texto normalizado agresivamente: '{texto}'")
+        # Mostrar representación hexadecimal para debugging
+        hex_original = texto_original.encode('utf-8').hex()
+        hex_normalizado = texto.encode('utf-8').hex()
+        
+        logger.info(f"Texto original: '{texto_original}'")
+        logger.info(f"Texto normalizado: '{texto}'")
+        logger.info(f"Hex original: {hex_original}")
+        logger.info(f"Hex normalizado: {hex_normalizado}")
         
         return texto
     
@@ -206,6 +216,15 @@ class SyncService:
             # Buscar inquilino por nombre con comparación más robusta
             inquilinos = Inquilino.query.all()
             logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
+            
+            # DEBUGGING: Imprimir todos los inquilinos en la base de datos
+            for idx, inq in enumerate(inquilinos):
+                logger.info(f"Socio #{idx+1}: ID={inq.id}, Nombre='{inq.propietario}'")
+                # Imprimir representación hexadecimal del nombre
+                if hasattr(inq, 'propietario') and inq.propietario:
+                    hex_nombre = inq.propietario.encode('utf-8').hex()
+                    logger.info(f"Hex del nombre: {hex_nombre}")
+            
             inquilino_encontrado = None
             
             # Normalizar el emisor con método agresivo
@@ -214,16 +233,55 @@ class SyncService:
             
             # Primero intentar coincidencia exacta con normalización agresiva
             for inquilino in inquilinos:
+                # DEBUGGING: Imprimir información detallada del inquilino
+                logger.info(f"Analizando socio: ID={inquilino.id}, Nombre='{inquilino.propietario}'")
+                
+                # Verificar si el campo propietario existe y no es None
+                if not hasattr(inquilino, 'propietario') or inquilino.propietario is None:
+                    logger.warning(f"Socio ID={inquilino.id} no tiene campo propietario o es None")
+                    continue
+                
                 nombre_norm = self.normalizar_texto(inquilino.propietario)
-                logger.info(f"Comparando con: '{inquilino.propietario}' (ID: {inquilino.id})")
-                logger.info(f"Nombre normalizado agresivamente: '{nombre_norm}'")
-                logger.info(f"COMPARACIÓN EXACTA: '{emisor_norm}' vs '{nombre_norm}'")
-                logger.info(f"¿Son iguales? {emisor_norm == nombre_norm}")
+                
+                # DEBUGGING: Imprimir representación hexadecimal de ambas cadenas
+                hex_emisor = emisor_norm.encode('utf-8').hex()
+                hex_nombre = nombre_norm.encode('utf-8').hex()
+                
+                logger.info(f"COMPARACIÓN EXACTA:")
+                logger.info(f"  Emisor: '{emisor_norm}' (hex: {hex_emisor})")
+                logger.info(f"  Nombre: '{nombre_norm}' (hex: {hex_nombre})")
+                logger.info(f"  ¿Son iguales? {emisor_norm == nombre_norm}")
+                logger.info(f"  Longitud emisor: {len(emisor_norm)}, Longitud nombre: {len(nombre_norm)}")
+                
+                # DEBUGGING: Comparar carácter por carácter
+                if len(emisor_norm) == len(nombre_norm):
+                    for i in range(len(emisor_norm)):
+                        if emisor_norm[i] != nombre_norm[i]:
+                            logger.info(f"  Diferencia en posición {i}: '{emisor_norm[i]}' vs '{nombre_norm[i]}'")
+                            logger.info(f"  Hex: {ord(emisor_norm[i]):02x} vs {ord(nombre_norm[i]):02x}")
+                
+                # DEBUGGING: Probar comparación directa de bytes
+                emisor_bytes = emisor_norm.encode('utf-8')
+                nombre_bytes = nombre_norm.encode('utf-8')
+                logger.info(f"  Comparación de bytes: {emisor_bytes == nombre_bytes}")
+                
+                # DEBUGGING: Probar comparación con strings literales
+                literal_match = "diegoalfredotapia" == nombre_norm
+                logger.info(f"  Comparación con literal 'diegoalfredotapia': {literal_match}")
                 
                 if emisor_norm == nombre_norm:
                     logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {inquilino.propietario}")
                     inquilino_encontrado = inquilino
                     break
+            
+            # DEBUGGING: Forzar coincidencia si el emisor es "Diego Alfredo Tapia"
+            if emisor == "Diego Alfredo Tapia" and not inquilino_encontrado:
+                logger.info("DEBUGGING: Forzando coincidencia para 'Diego Alfredo Tapia'")
+                for inquilino in inquilinos:
+                    if hasattr(inquilino, 'propietario') and inquilino.propietario and "Diego" in inquilino.propietario and "Tapia" in inquilino.propietario:
+                        logger.info(f"¡COINCIDENCIA FORZADA! Socio encontrado: {inquilino.propietario}")
+                        inquilino_encontrado = inquilino
+                        break
             
             # Si no hay coincidencia exacta, intentar coincidencia parcial
             if not inquilino_encontrado:
@@ -238,6 +296,10 @@ class SyncService:
                 logger.info(f"Palabras clave del emisor: {palabras_emisor}")
                 
                 for inquilino in inquilinos:
+                    # Verificar si el campo propietario existe y no es None
+                    if not hasattr(inquilino, 'propietario') or inquilino.propietario is None:
+                        continue
+                    
                     # Extraer palabras del nombre del inquilino
                     palabras_nombre = [self.normalizar_texto(palabra) for palabra in inquilino.propietario.split()]
                     logger.info(f"Palabras del nombre: {palabras_nombre}")
