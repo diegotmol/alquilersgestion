@@ -113,7 +113,7 @@ function cargarInquilinos() {
             calcularTotales();
         })
         .catch(error => {
-            console.error('Error al cargar inquilinos:', error);
+            console.error('Error al cargar socios:', error);
             // Si no hay conexión con el backend, usar datos de ejemplo para demostración
             cargarDatosEjemplo();
         });
@@ -122,11 +122,11 @@ function cargarInquilinos() {
 // Cargar datos de ejemplo (solo para demostración si no hay backend)
 function cargarDatosEjemplo() {
     inquilinos = [
-        { id: 1, propietario: 'Juan Pérez', propiedad: 'Casa en Santiago', telefono: '+56 9 12345678', monto: 800, estado_pago: 'No pagado' },
-        { id: 2, propietario: 'Maria Gómez', propiedad: 'Departamento en Valparaíso', telefono: '+56 9 98765432', monto: 650, estado_pago: 'Pagado' },
-        { id: 3, propietario: 'Carlos López', propiedad: 'Oficina en Concepción', telefono: '+56 9 55555555', monto: 1200, estado_pago: 'Pagado' },
-        { id: 4, propietario: 'Ana Rodríguez', propiedad: 'Departamento en Santiago', telefono: '+56 9 87654321', monto: 750, estado_pago: 'Pagado' },
-        { id: 5, propietario: 'Luis Martínez', propiedad: 'Casa en Valparaíso', telefono: '+56 9 11112222', monto: 900, estado_pago: 'Pagado' }
+        { id: 1, propietario: 'Juan Pérez', propiedad: 'Socio #001', telefono: '+56 9 12345678', monto: 800, estado_pago: 'No pagado' },
+        { id: 2, propietario: 'Maria Gómez', propiedad: 'Socio #002', telefono: '+56 9 98765432', monto: 650, estado_pago: 'Pagado' },
+        { id: 3, propietario: 'Carlos López', propiedad: 'Socio #003', telefono: '+56 9 55555555', monto: 1200, estado_pago: 'Pagado' },
+        { id: 4, propietario: 'Ana Rodríguez', propiedad: 'Socio #004', telefono: '+56 9 87654321', monto: 750, estado_pago: 'Pagado' },
+        { id: 5, propietario: 'Luis Martínez', propiedad: 'Socio #005', telefono: '+56 9 11112222', monto: 900, estado_pago: 'Pagado' }
     ];
     renderizarTablaInquilinos();
     calcularTotales();
@@ -374,8 +374,8 @@ function guardarInquilino(event) {
             cargarInquilinos();
         })
         .catch(error => {
-            console.error('Error al actualizar inquilino:', error);
-            alert('Error al actualizar inquilino. Por favor, intenta de nuevo.');
+            console.error('Error al actualizar socio:', error);
+            alert('Error al actualizar socio. Por favor, intenta de nuevo.');
         });
     } else {
         // Añadir nuevo inquilino
@@ -398,8 +398,8 @@ function guardarInquilino(event) {
             cargarInquilinos();
         })
         .catch(error => {
-            console.error('Error al añadir inquilino:', error);
-            alert('Error al añadir inquilino. Por favor, intenta de nuevo.');
+            console.error('Error al añadir socio:', error);
+            alert('Error al añadir socio. Por favor, intenta de nuevo.');
             
             // Si no hay conexión con el backend, simular añadir inquilino (solo para demostración)
             const nuevoInquilino = {
@@ -435,7 +435,7 @@ function editarInquilino(id) {
 
 // Eliminar inquilino
 function eliminarInquilino(id) {
-    if (!confirm('¿Estás seguro de que deseas eliminar este inquilino?')) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este socio?')) return;
     
     fetch(`/api/inquilinos/${id}`, {
         method: 'DELETE'
@@ -444,12 +444,12 @@ function eliminarInquilino(id) {
         if (response.ok) {
             cargarInquilinos();
         } else {
-            throw new Error('Error al eliminar inquilino');
+            throw new Error('Error al eliminar socio');
         }
     })
     .catch(error => {
-        console.error('Error al eliminar inquilino:', error);
-        alert('Error al eliminar inquilino. Por favor, intenta de nuevo.');
+        console.error('Error al eliminar socio:', error);
+        alert('Error al eliminar socio. Por favor, intenta de nuevo.');
         
         // Si no hay conexión con el backend, simular eliminación (solo para demostración)
         inquilinos = inquilinos.filter(i => i.id !== id);
