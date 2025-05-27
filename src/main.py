@@ -5,6 +5,7 @@ from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os
 import logging
+from sqlalchemy import text
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -140,6 +141,47 @@ with app.app_context():
         logger.info("Base de datos inicializada correctamente")
     except Exception as e:
         logger.error(f"Error al inicializar la base de datos: {str(e)}")
+
+# Añade este código al final de tu archivo main.py, justo antes de la línea "if __name__ == '__main__':"
+
+@app.route('/debug/tabla_inquilinos', methods=['GET'])
+def debug_tabla_inquilinos():
+    try:
+        # Obtener todas las columnas de la tabla
+        inspector = db.inspect(db.engine)
+        columnas = [col['name'] for col in inspector.get_columns('inquilinos')]
+        
+        # Consulta directa a la base de datos para obtener todos los datos
+        query = text(f"SELECT {', '.join(columnas)} FROM inquilinos")
+        result = db.session.execute(query).fetchall()
+        
+        # Convertir a formato legible
+        filas = []
+        for fila in result:
+            fila_dict = {}
+            for i, col in enumerate(columnas):
+                fila_dict[col] = str(fila[i])  # Convertir a string para evitar problemas de serialización
+            filas.append(fila_dict)
+        
+        # Imprimir en los logs
+        app.logger.info("=== CONTENIDO COMPLETO DE LA TABLA INQUILINOS ===")
+        for fila in filas:
+            app.logger.info(f"Fila: {fila}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Tabla inquilinos impresa en los logs",
+            "columnas": columnas,
+            "datos": filas
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Error al depurar tabla inquilinos: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
