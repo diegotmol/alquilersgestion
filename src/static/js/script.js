@@ -215,8 +215,12 @@ function verPagos() {
     console.log('Menú lateral toggled desde Ver Pagos');
 }
 
-// Función para sincronizar correos
+// Función para sincronizar correos - MODIFICADA
 function sincronizarCorreos() {
+    // Guardar el mes seleccionado en localStorage antes de la redirección
+    const mesSeleccionado = document.getElementById('mes').value;
+    localStorage.setItem('mesSeleccionado', mesSeleccionado);
+    
     // Mostrar modal de autenticación de Google
     const modal = document.getElementById('modal-google-auth');
     modal.style.display = 'block';
@@ -235,14 +239,20 @@ function sincronizarCorreos() {
         });
 }
 
-// Función para sincronizar correos después de la autenticación
+// Función para sincronizar correos después de la autenticación - MODIFICADA
 function sincronizarCorreosAutenticado(credentials) {
     // Mostrar indicador de carga
     document.getElementById('sincronizar-correos-btn').textContent = 'Sincronizando...';
     document.getElementById('sincronizar-correos-btn').disabled = true;
 
-    // Obtener el mes seleccionado
-    const mesSeleccionado = document.getElementById('mes').value;
+    // Recuperar el mes seleccionado de localStorage
+    const mesSeleccionado = localStorage.getItem('mesSeleccionado') || document.getElementById('mes').value;
+    
+    // Actualizar el selector de mes para mostrar el valor correcto
+    document.getElementById('mes').value = mesSeleccionado;
+    
+    // Actualizar la variable global
+    mesActual = mesSeleccionado;
 
     // MODIFICACIÓN: Incluir el año en la sincronización
     // Llamar a la API para sincronizar correos
@@ -433,12 +443,9 @@ function eliminarInquilino(id) {
     fetch(`/api/inquilinos/${id}`, {
         method: 'DELETE'
     })
-    .then(response => {
-        if (response.ok) {
-            cargarInquilinos();
-        } else {
-            throw new Error('Error al eliminar socio');
-        }
+    .then(response => response.json())
+    .then(data => {
+        cargarInquilinos();
     })
     .catch(error => {
         console.error('Error al eliminar socio:', error);
