@@ -1,10 +1,12 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión modificada para filtrar por fecha de recepción del correo.
+Versión con matching mejorado entre emisor y socio, y filtrado por fecha de recepción.
 """
 import logging
 from datetime import datetime
 import pytz  # Necesitamos importar pytz para manejar zonas horarias
+import unicodedata  # Para normalización de texto
+import re  # Para expresiones regulares
 from src.services.gmail_service_real import GmailServiceReal
 from src.services.email_parser import EmailParser
 from src.models.configuracion import Configuracion
@@ -151,6 +153,33 @@ class SyncService:
                 "pagos_actualizados": 0
             }
     
+    def normalizar_texto(self, texto):
+        """
+        Normaliza un texto para comparación, eliminando acentos, caracteres especiales y espacios extras.
+        
+        Args:
+            texto (str): Texto a normalizar
+            
+        Returns:
+            str: Texto normalizado
+        """
+        if not texto:
+            return ""
+        
+        # Convertir a minúsculas
+        texto = texto.lower()
+        
+        # Eliminar acentos y caracteres especiales
+        texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
+        
+        # Eliminar caracteres no alfanuméricos y reemplazarlos por espacios
+        texto = re.sub(r'[^a-z0-9\s]', ' ', texto)
+        
+        # Eliminar espacios extras
+        texto = ' '.join(texto.split())
+        
+        return texto
+    
     def _actualizar_pago_inquilino(self, transfer_data, mes_seleccionado=None, año_seleccionado=None):
         """
         Actualiza el estado de pago de un inquilino basado en los datos de transferencia.
@@ -170,7 +199,7 @@ class SyncService:
                 return False
             
             # Obtener el nombre del emisor (quien hizo la transferencia)
-            emisor = transfer_data.get('emisor', '').strip().lower()
+            emisor = transfer_data.get('emisor', '').strip()
             logger.info(f"Emisor original: '{emisor}'")
             
             # Buscar inquilino por nombre con comparación más robusta
@@ -178,14 +207,20 @@ class SyncService:
             logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
             inquilino_encontrado = None
             
-            # Normalizar el emisor (quitar espacios extras)
-            emisor_norm = ' '.join(emisor.split()).lower()
+            # Normalizar el emisor
+            emisor_norm = self.normalizar_texto(emisor)
             logger.info(f"Emisor normalizado: '{emisor_norm}'")
+            
+            # MEJORA: Extraer palabras clave del emisor (nombres y apellidos)
+            palabras_emisor = emisor_norm.split()
+            logger.info(f"Palabras clave del emisor: {palabras_emisor}")
             
             # Primero intentar coincidencia exacta
             for inquilino in inquilinos:
-                nombre_norm = ' '.join(inquilino.propietario.split()).lower()
+                nombre_norm = self.normalizar_texto(inquilino.propietario)
                 logger.info(f"Comparando con: '{nombre_norm}' (ID: {inquilino.id})")
+                logger.info(f"COMPARACIÓN EXACTA: '{emisor_norm}' vs '{nombre_norm}'")
+                logger.info(f"¿Son iguales? {emisor_norm == nombre_norm}")
                 
                 if emisor_norm == nombre_norm:
                     logger.info(f"¡COINCIDENCIA EXACTA! Socio encontrado: {inquilino.propietario}")
@@ -194,12 +229,54 @@ class SyncService:
             
             # Si no hay coincidencia exacta, intentar coincidencia parcial
             if not inquilino_encontrado:
+                # MEJORA: Usar puntuación para evaluar la calidad de la coincidencia
+                mejor_puntuacion = 0
+                mejor_inquilino = None
+                
                 for inquilino in inquilinos:
-                    nombre_norm = ' '.join(inquilino.propietario.split()).lower()
-                    if nombre_norm in emisor_norm or emisor_norm in nombre_norm:
-                        logger.info(f"¡Coincidencia parcial! Socio: {inquilino.propietario}")
-                        inquilino_encontrado = inquilino
-                        break
+                    nombre_norm = self.normalizar_texto(inquilino.propietario)
+                    palabras_nombre = nombre_norm.split()
+                    
+                    # Calcular puntuación basada en palabras coincidentes
+                    puntuacion = 0
+                    for palabra in palabras_emisor:
+                        if palabra in palabras_nombre:
+                            puntuacion += 1
+                    
+                    # Normalizar puntuación (0-100%)
+                    max_palabras = max(len(palabras_emisor), len(palabras_nombre))
+                    if max_palabras > 0:
+                        puntuacion_porcentaje = (puntuacion / max_palabras) * 100
+                    else:
+                        puntuacion_porcentaje = 0
+                    
+                    logger.info(f"Coincidencia parcial con {inquilino.propietario}: {puntuacion_porcentaje:.1f}%")
+                    
+                    # Si la puntuación es mejor que la anterior, actualizar
+                    if puntuacion_porcentaje > mejor_puntuacion:
+                        mejor_puntuacion = puntuacion_porcentaje
+                        mejor_inquilino = inquilino
+                
+                # Si la mejor puntuación supera un umbral, considerar que hay coincidencia
+                if mejor_puntuacion >= 50:  # Al menos 50% de coincidencia
+                    logger.info(f"¡Coincidencia parcial aceptable! Socio: {mejor_inquilino.propietario} con {mejor_puntuacion:.1f}% de coincidencia")
+                    inquilino_encontrado = mejor_inquilino
+            
+            # MEJORA: Si aún no hay coincidencia, intentar con el RUT
+            if not inquilino_encontrado and 'rut_destinatario' in transfer_data:
+                rut = transfer_data['rut_destinatario']
+                # Normalizar RUT (quitar puntos y guiones)
+                rut_norm = re.sub(r'[^0-9kK]', '', rut)
+                logger.info(f"Intentando coincidencia por RUT: {rut_norm}")
+                
+                for inquilino in inquilinos:
+                    # Si el inquilino tiene un campo rut, comparar
+                    if hasattr(inquilino, 'rut'):
+                        inquilino_rut = re.sub(r'[^0-9kK]', '', inquilino.rut)
+                        if rut_norm == inquilino_rut:
+                            logger.info(f"¡Coincidencia por RUT! Socio: {inquilino.propietario}")
+                            inquilino_encontrado = inquilino
+                            break
             
             if not inquilino_encontrado:
                 logger.warning(f"No se encontró socio para el emisor: '{emisor}'")
