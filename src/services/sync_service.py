@@ -34,7 +34,7 @@ class SyncService:
         """
         try:
             # Mantener la consulta original rígida como lo solicitó el usuario
-            query = "subject:Comprobante de pago"
+            query = "subject:Aviso de transferencia de fondos"
             if mes:
                 query += f" AND subject:{mes}"
                 
