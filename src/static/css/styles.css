@@ -8,11 +8,14 @@
 
 body {
     background-color: #f5f5f5;
+    overflow-x: hidden; /* Evitar scroll horizontal durante la transición */
 }
 
 .container {
     display: flex;
     min-height: 100vh;
+    position: relative;
+    transition: all 0.3s ease; /* Transición suave para el desplazamiento */
 }
 
 /* Estilos del menú lateral */
@@ -22,12 +25,15 @@ body {
     color: white;
     padding: 20px;
     transition: all 0.3s ease;
-    display: none; /* Oculto por defecto */
-    position: fixed;
     height: 100%;
+    position: fixed;
     top: 0;
-    left: 0;
+    left: -250px; /* Inicialmente fuera de la pantalla */
     z-index: 999;
+}
+
+.sidebar.active {
+    left: 0; /* Cuando está activo, se muestra */
 }
 
 .sidebar h2 {
@@ -77,6 +83,13 @@ body {
     flex: 1;
     padding: 20px;
     width: 100%;
+    transition: all 0.3s ease; /* Transición suave para el desplazamiento */
+    margin-left: 0; /* Inicialmente sin margen */
+}
+
+/* Cuando el menú está activo, desplazar el contenido */
+.sidebar.active ~ .main-content {
+    margin-left: 250px; /* Mismo ancho que el sidebar */
 }
 
 .header {
@@ -254,12 +267,17 @@ table th {
 
 /* Responsive */
 @media (max-width: 768px) {
-    .container {
-        flex-direction: column;
+    .sidebar {
+        width: 200px;
+        left: -200px;
+    }
+    
+    .sidebar.active ~ .main-content {
+        margin-left: 200px;
     }
     
     .main-content {
-        margin-top: 60px;
+        padding: 15px;
     }
     
     .totales {
@@ -268,5 +286,22 @@ table th {
     
     .totales div {
         margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 100%;
+        left: -100%;
+    }
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    .sidebar.active ~ .main-content {
+        margin-left: 0;
+        opacity: 0.3; /* Oscurecer el contenido cuando el menú está abierto en móviles */
+        pointer-events: none; /* Desactivar interacciones con el contenido cuando el menú está abierto */
     }
 }
