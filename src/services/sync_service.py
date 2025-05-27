@@ -1,6 +1,5 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión modificada para usar una consulta más efectiva y compatible con los correos del Banco de Chile.
 """
 import logging
 from datetime import datetime
