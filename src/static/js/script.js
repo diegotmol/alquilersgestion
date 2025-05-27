@@ -295,18 +295,33 @@ function sincronizarCorreosAutenticado(credentials) {
     });
 }
 
-// Cambiar mes
+// Cambiar mes - VERSIÓN MEJORADA
 function cambiarMes() {
     const mesSeleccionado = document.getElementById('mes').value;
+    const mesAnterior = mesActual;
     mesActual = mesSeleccionado;
     
-    // MODIFICACIÓN: No filtrar los inquilinos, solo actualizar el mes actual
-    // y volver a renderizar la tabla con todos los inquilinos
+    console.log(`Cambiando mes de ${mesAnterior} a ${mesActual}`);
     
-    // Renderizar la tabla con todos los inquilinos pero mostrando el estado
-    // de pago correspondiente al mes seleccionado
-    renderizarTablaInquilinos();
-    calcularTotales();
+    // Limpiar completamente la tabla antes de volver a renderizarla
+    const tbody = document.getElementById('inquilinos-body');
+    tbody.innerHTML = '';
+    
+    // Forzar un refresco visual con un pequeño retraso
+    setTimeout(() => {
+        // Renderizar la tabla con todos los inquilinos pero mostrando el estado
+        // de pago correspondiente al mes seleccionado
+        renderizarTablaInquilinos();
+        calcularTotales();
+        
+        // Mostrar mensaje de confirmación
+        console.log(`Tabla actualizada para el mes: ${mesActual}`);
+    }, 50);
+    
+    // Actualizar visualmente el selector para confirmar el cambio
+    const selector = document.getElementById('mes');
+    selector.blur();
+    setTimeout(() => selector.focus(), 100);
 }
 
 // Mostrar modal para añadir inquilino
