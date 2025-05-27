@@ -1,6 +1,5 @@
 from src.models.database import db
 from datetime import datetime
-import re
 
 class Inquilino(db.Model):
     __tablename__ = 'inquilinos'
@@ -9,7 +8,7 @@ class Inquilino(db.Model):
     propietario = db.Column(db.String(100), nullable=False)
     propiedad = db.Column(db.String(100), nullable=False)
     telefono = db.Column(db.String(20), nullable=False)
-    rut = db.Column(db.String(20), nullable=True)
+    rut = db.Column(db.String(20), nullable=True)  # Nuevo campo RUT
     monto = db.Column(db.Float, nullable=False)
     estado_pago = db.Column(db.String(20), default='No pagado')
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
@@ -30,10 +29,9 @@ class Inquilino(db.Model):
         }
         
         # Añadir dinámicamente todas las columnas de pagos mensuales
-        # Usamos dir() en lugar de __dict__ para evitar problemas con caracteres especiales
-        for key in dir(self):
-            # Verificar si es un atributo de pago mensual y no es un método o atributo privado
-            if key.startswith('pago_') and not key.startswith('_') and not callable(getattr(self, key)):
-                result[key] = getattr(self, key)
+        # Usar __dict__ para acceder a los atributos del objeto
+        for key, value in self.__dict__.items():
+            if key.startswith('pago_') and not key.startswith('_sa_'):
+                result[key] = value
         
         return result
