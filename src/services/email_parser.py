@@ -21,22 +21,32 @@ def parse_banco_chile_email(self, email):
                 if part.get('mimeType') == 'text/html':
                     data = part.get('body', {}).get('data', '')
                     if data:
-                        html_content = base64.urlsafe_b64decode(data).decode('utf-8')
-                        break
+                        try:
+                            html_content = base64.urlsafe_b64decode(data).decode('utf-8')
+                            break
+                        except Exception as e:
+                            logger.error(f"Error al decodificar HTML: {str(e)}")
         else:
             # Si no hay parts, intentar obtener el body directamente
             body = payload.get('body', {})
             data = body.get('data', '')
             if data:
-                html_content = base64.urlsafe_b64decode(data).decode('utf-8')
+                try:
+                    html_content = base64.urlsafe_b64decode(data).decode('utf-8')
+                except Exception as e:
+                    logger.error(f"Error al decodificar HTML del body: {str(e)}")
         
         if not html_content:
             logger.warning("No se encontró contenido HTML en el correo")
             return None
         
         # Parsear el HTML
-        soup = BeautifulSoup(html_content, 'html.parser')
-        logger.info("HTML parseado correctamente, buscando elementos...")
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            logger.info("HTML parseado correctamente, buscando elementos...")
+        except Exception as e:
+            logger.error(f"Error al parsear HTML con BeautifulSoup: {str(e)}")
+            return None
         
         # Inicializar diccionario para datos de transferencia
         transfer_data = {}
@@ -44,26 +54,38 @@ def parse_banco_chile_email(self, email):
         # Extraer el nombre del emisor
         # Buscar el texto que contiene "Te informamos que nuestro(a) cliente"
         emisor = None
-        for p_tag in soup.find_all('p'):
-            text = p_tag.get_text()
-            if 'Te informamos que nuestro(a) cliente' in text:
-                logger.info(f"Encontrado texto con información del cliente: {text}")
-                match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
-                if match:
-                    emisor = match.group(1).strip()
-                    logger.info(f"Emisor extraído: '{emisor}'")
-                    break
         
-        # Si no se encontró con el método anterior, buscar en todo el texto
-        if not emisor:
-            for text in soup.stripped_strings:
-                if 'cliente' in text and 'ha efectuado' in text:
-                    logger.info(f"Encontrado texto alternativo con información del cliente: {text}")
-                    match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
-                    if match:
-                        emisor = match.group(1).strip()
-                        logger.info(f"Emisor extraído (método alternativo): '{emisor}'")
-                        break
+        # Verificar que soup no sea None antes de usar find_all
+        if soup is not None:
+            # Método 1: Buscar en párrafos
+            try:
+                for p_tag in soup.find_all('p'):
+                    text = p_tag.get_text()
+                    if 'Te informamos que nuestro(a) cliente' in text:
+                        logger.info(f"Encontrado texto con información del cliente: {text}")
+                        match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
+                        if match:
+                            emisor = match.group(1).strip()
+                            logger.info(f"Emisor extraído: '{emisor}'")
+                            break
+            except Exception as e:
+                logger.error(f"Error al buscar emisor en párrafos: {str(e)}")
+            
+            # Método 2: Si no se encontró con el método anterior, buscar en todo el texto
+            if not emisor:
+                try:
+                    for text in soup.stripped_strings:
+                        if 'cliente' in text and 'ha efectuado' in text:
+                            logger.info(f"Encontrado texto alternativo con información del cliente: {text}")
+                            match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
+                            if match:
+                                emisor = match.group(1).strip()
+                                logger.info(f"Emisor extraído (método alternativo): '{emisor}'")
+                                break
+                except Exception as e:
+                    logger.error(f"Error al buscar emisor en texto completo: {str(e)}")
+        else:
+            logger.error("BeautifulSoup devolvió None, no se puede buscar el emisor")
         
         if emisor:
             transfer_data['emisor'] = emisor
@@ -72,20 +94,45 @@ def parse_banco_chile_email(self, email):
         
         # Extraer la fecha
         fecha_obj = None
-        # Buscar todas las celdas de tabla
-        for td in soup.find_all('td'):
-            text = td.get_text().strip()
-            # Buscar un patrón de fecha dd/mm/yyyy
-            match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
-            if match:
-                fecha_text = match.group(1)
-                logger.info(f"Posible fecha encontrada: {fecha_text}")
+        
+        # Verificar que soup no sea None antes de usar find_all
+        if soup is not None:
+            # Método 1: Buscar todas las celdas de tabla
+            try:
+                for td in soup.find_all('td'):
+                    text = td.get_text().strip()
+                    # Buscar un patrón de fecha dd/mm/yyyy
+                    match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+                    if match:
+                        fecha_text = match.group(1)
+                        logger.info(f"Posible fecha encontrada: {fecha_text}")
+                        try:
+                            fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
+                            logger.info(f"Fecha parseada: {fecha_obj}")
+                            break
+                        except Exception as e:
+                            logger.error(f"Error al parsear fecha '{fecha_text}': {str(e)}")
+            except Exception as e:
+                logger.error(f"Error al buscar fecha en celdas: {str(e)}")
+            
+            # Método 2: Si no se encontró con el método anterior, buscar en todo el texto
+            if not fecha_obj:
                 try:
-                    fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
-                    logger.info(f"Fecha parseada: {fecha_obj}")
-                    break
+                    for text in soup.stripped_strings:
+                        match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+                        if match:
+                            fecha_text = match.group(1)
+                            logger.info(f"Posible fecha encontrada (método alternativo): {fecha_text}")
+                            try:
+                                fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
+                                logger.info(f"Fecha parseada (método alternativo): {fecha_obj}")
+                                break
+                            except Exception as e:
+                                logger.error(f"Error al parsear fecha '{fecha_text}': {str(e)}")
                 except Exception as e:
-                    logger.error(f"Error al parsear fecha '{fecha_text}': {str(e)}")
+                    logger.error(f"Error al buscar fecha en texto completo: {str(e)}")
+        else:
+            logger.error("BeautifulSoup devolvió None, no se puede buscar la fecha")
         
         if fecha_obj:
             transfer_data['fecha'] = fecha_obj
@@ -97,22 +144,48 @@ def parse_banco_chile_email(self, email):
         
         # Extraer el monto
         monto = None
-        # Buscar el monto en formato $XX.XXX
-        for td in soup.find_all('td'):
-            text = td.get_text().strip()
-            # Buscar un patrón de monto $XX.XXX o $XX,XXX
-            match = re.search(r'\$\s*([\d\.,]+)', text)
-            if match:
-                monto_text = match.group(1)
-                logger.info(f"Posible monto encontrado: {monto_text}")
-                # Limpiar el monto (quitar puntos, comas y convertir a número)
-                monto_limpio = re.sub(r'[^\d]', '', monto_text)
+        
+        # Verificar que soup no sea None antes de usar find_all
+        if soup is not None:
+            # Método 1: Buscar el monto en celdas de tabla
+            try:
+                for td in soup.find_all('td'):
+                    text = td.get_text().strip()
+                    # Buscar un patrón de monto $XX.XXX o $XX,XXX
+                    match = re.search(r'\$\s*([\d\.,]+)', text)
+                    if match:
+                        monto_text = match.group(1)
+                        logger.info(f"Posible monto encontrado: {monto_text}")
+                        # Limpiar el monto (quitar puntos, comas y convertir a número)
+                        monto_limpio = re.sub(r'[^\d]', '', monto_text)
+                        try:
+                            monto = int(monto_limpio)
+                            logger.info(f"Monto parseado: {monto}")
+                            break
+                        except Exception as e:
+                            logger.error(f"Error al parsear monto '{monto_text}': {str(e)}")
+            except Exception as e:
+                logger.error(f"Error al buscar monto en celdas: {str(e)}")
+            
+            # Método 2: Si no se encontró con el método anterior, buscar en todo el texto
+            if not monto:
                 try:
-                    monto = int(monto_limpio)
-                    logger.info(f"Monto parseado: {monto}")
-                    break
+                    for text in soup.stripped_strings:
+                        match = re.search(r'\$\s*([\d\.,]+)', text)
+                        if match:
+                            monto_text = match.group(1)
+                            logger.info(f"Posible monto encontrado (método alternativo): {monto_text}")
+                            monto_limpio = re.sub(r'[^\d]', '', monto_text)
+                            try:
+                                monto = int(monto_limpio)
+                                logger.info(f"Monto parseado (método alternativo): {monto}")
+                                break
+                            except Exception as e:
+                                logger.error(f"Error al parsear monto '{monto_text}': {str(e)}")
                 except Exception as e:
-                    logger.error(f"Error al parsear monto '{monto_text}': {str(e)}")
+                    logger.error(f"Error al buscar monto en texto completo: {str(e)}")
+        else:
+            logger.error("BeautifulSoup devolvió None, no se puede buscar el monto")
         
         if monto:
             transfer_data['monto'] = monto
