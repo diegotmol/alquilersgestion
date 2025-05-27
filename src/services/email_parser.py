@@ -1,99 +1,135 @@
-"""
-Servicio para analizar y extraer información de correos electrónicos del Banco de Chile.
-"""
-import re
-import base64
-from bs4 import BeautifulSoup
-import html
-from datetime import datetime
-
-class EmailParser:
-    def __init__(self):
-        pass
-    
-    def parse_banco_chile_email(self, email):
-        """
-        Analiza un correo electrónico del Banco de Chile y extrae la información relevante.
+def parse_banco_chile_email(self, email):
+    try:
+        logger.info(f"Iniciando parseo de correo con ID: {email.get('id', 'sin ID')}")
         
-        Args:
-            email (dict): Correo electrónico obtenido de la API de Gmail
-            
-        Returns:
-            dict: Información extraída del correo o None si no es un correo válido
-        """
-        # Verificar que el correo sea del Banco de Chile
-        if 'serviciodetransferencias@bancochile.cl' not in email.get('from', ''):
+        # Verificar remitente
+        from_header = email.get('from', '')
+        logger.info(f"Remitente del correo: {from_header}")
+        
+        if 'serviciodetransferencias@bancochile.cl' not in from_header:
+            logger.info("Remitente no coincide con servicio de transferencias, ignorando correo")
             return None
         
-        # Decodificar el cuerpo del correo
-        body = email.get('body', '')
-        if not body:
-            return None
-            
-        # Decodificar el cuerpo del correo desde base64
-        try:
-            body_decoded = base64.urlsafe_b64decode(body).decode('utf-8')
-        except Exception as e:
-            print(f"Error decodificando el cuerpo del correo: {e}")
+        # Extraer el cuerpo del correo
+        payload = email.get('payload', {})
+        parts = payload.get('parts', [])
+        
+        html_content = None
+        # Intentar obtener el contenido HTML
+        if parts:
+            for part in parts:
+                if part.get('mimeType') == 'text/html':
+                    data = part.get('body', {}).get('data', '')
+                    if data:
+                        html_content = base64.urlsafe_b64decode(data).decode('utf-8')
+                        break
+        else:
+            # Si no hay parts, intentar obtener el body directamente
+            body = payload.get('body', {})
+            data = body.get('data', '')
+            if data:
+                html_content = base64.urlsafe_b64decode(data).decode('utf-8')
+        
+        if not html_content:
+            logger.warning("No se encontró contenido HTML en el correo")
             return None
         
         # Parsear el HTML
-        soup = BeautifulSoup(body_decoded, 'html.parser')
+        soup = BeautifulSoup(html_content, 'html.parser')
+        logger.info("HTML parseado correctamente, buscando elementos...")
         
-        # Extraer información relevante
+        # Inicializar diccionario para datos de transferencia
         transfer_data = {}
         
-        # Extraer el nombre del destinatario
-        destinatario_element = soup.find(string=re.compile('Estimado\(a\):'))
-        if destinatario_element:
-            destinatario_text = destinatario_element.strip()
-            transfer_data['destinatario'] = destinatario_text.replace('Estimado(a):', '').strip()
-        
         # Extraer el nombre del emisor
-        emisor_element = soup.find(string=re.compile('Te informamos que nuestro\(a\) cliente'))
-        if emisor_element:
-            match = re.search(r'cliente\s+(.*?)\s+ha efectuado', emisor_element)
-            if match:
-                transfer_data['emisor'] = match.group(1).strip()
+        # Buscar el texto que contiene "Te informamos que nuestro(a) cliente"
+        emisor = None
+        for p_tag in soup.find_all('p'):
+            text = p_tag.get_text()
+            if 'Te informamos que nuestro(a) cliente' in text:
+                logger.info(f"Encontrado texto con información del cliente: {text}")
+                match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
+                if match:
+                    emisor = match.group(1).strip()
+                    logger.info(f"Emisor extraído: '{emisor}'")
+                    break
+        
+        # Si no se encontró con el método anterior, buscar en todo el texto
+        if not emisor:
+            for text in soup.stripped_strings:
+                if 'cliente' in text and 'ha efectuado' in text:
+                    logger.info(f"Encontrado texto alternativo con información del cliente: {text}")
+                    match = re.search(r'cliente\s+(.*?)\s+ha efectuado', text)
+                    if match:
+                        emisor = match.group(1).strip()
+                        logger.info(f"Emisor extraído (método alternativo): '{emisor}'")
+                        break
+        
+        if emisor:
+            transfer_data['emisor'] = emisor
+        else:
+            logger.warning("No se pudo extraer el emisor")
         
         # Extraer la fecha
-        fecha_element = soup.find('td', string=re.compile('Fecha'))
-        if fecha_element and fecha_element.find_next('td'):
-            fecha_text = fecha_element.find_next('td').text.strip()
-            try:
-                # Convertir la fecha al formato deseado
-                fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
-                transfer_data['fecha'] = fecha_obj
-                transfer_data['mes'] = fecha_obj.month
-                transfer_data['año'] = fecha_obj.year
-            except Exception as e:
-                print(f"Error parseando la fecha: {e}")
-                transfer_data['fecha_texto'] = fecha_text
+        fecha_obj = None
+        # Buscar todas las celdas de tabla
+        for td in soup.find_all('td'):
+            text = td.get_text().strip()
+            # Buscar un patrón de fecha dd/mm/yyyy
+            match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+            if match:
+                fecha_text = match.group(1)
+                logger.info(f"Posible fecha encontrada: {fecha_text}")
+                try:
+                    fecha_obj = datetime.strptime(fecha_text, '%d/%m/%Y')
+                    logger.info(f"Fecha parseada: {fecha_obj}")
+                    break
+                except Exception as e:
+                    logger.error(f"Error al parsear fecha '{fecha_text}': {str(e)}")
+        
+        if fecha_obj:
+            transfer_data['fecha'] = fecha_obj
+            transfer_data['mes'] = fecha_obj.month
+            transfer_data['año'] = fecha_obj.year
+            logger.info(f"Fecha final: {fecha_obj}, Mes: {fecha_obj.month}, Año: {fecha_obj.year}")
+        else:
+            logger.warning("No se pudo extraer la fecha")
         
         # Extraer el monto
-        monto_element = soup.find(string=re.compile('Monto'))
-        if monto_element and monto_element.find_next('td'):
-            monto_text = monto_element.find_next('td').text.strip()
-            # Limpiar el monto (quitar símbolos y convertir a número)
-            monto_limpio = re.sub(r'[^\d]', '', monto_text)
-            try:
-                transfer_data['monto'] = int(monto_limpio)
-            except:
-                transfer_data['monto_texto'] = monto_text
+        monto = None
+        # Buscar el monto en formato $XX.XXX
+        for td in soup.find_all('td'):
+            text = td.get_text().strip()
+            # Buscar un patrón de monto $XX.XXX o $XX,XXX
+            match = re.search(r'\$\s*([\d\.,]+)', text)
+            if match:
+                monto_text = match.group(1)
+                logger.info(f"Posible monto encontrado: {monto_text}")
+                # Limpiar el monto (quitar puntos, comas y convertir a número)
+                monto_limpio = re.sub(r'[^\d]', '', monto_text)
+                try:
+                    monto = int(monto_limpio)
+                    logger.info(f"Monto parseado: {monto}")
+                    break
+                except Exception as e:
+                    logger.error(f"Error al parsear monto '{monto_text}': {str(e)}")
         
-        # Extraer el RUT del destinatario
-        rut_element = soup.find('td', string=re.compile('Rut'))
-        if rut_element and rut_element.find_next('td'):
-            transfer_data['rut_destinatario'] = rut_element.find_next('td').text.strip()
+        if monto:
+            transfer_data['monto'] = monto
+            logger.info(f"Monto final: {monto}")
+        else:
+            logger.warning("No se pudo extraer el monto")
         
-        # Extraer el email del destinatario
-        email_element = soup.find('td', string=re.compile('Email'))
-        if email_element and email_element.find_next('td'):
-            transfer_data['email_destinatario'] = email_element.find_next('td').text.strip()
-        
-        # Extraer el número de comprobante
-        comprobante_element = soup.find('td', string=re.compile('Número de comprobante'))
-        if comprobante_element and comprobante_element.find_next('td'):
-            transfer_data['comprobante'] = comprobante_element.find_next('td').text.strip()
-        
-        return transfer_data
+        # Verificar si se extrajeron los datos mínimos necesarios
+        if 'emisor' in transfer_data and 'fecha' in transfer_data:
+            logger.info(f"Datos extraídos correctamente: {transfer_data}")
+            return transfer_data
+        else:
+            logger.warning(f"No se pudieron extraer todos los datos necesarios. Datos parciales: {transfer_data}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error al parsear correo: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
