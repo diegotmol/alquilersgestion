@@ -155,7 +155,8 @@ class SyncService:
     
     def normalizar_texto(self, texto):
         """
-        Normaliza un texto para comparación, eliminando acentos, caracteres especiales y espacios extras.
+        Normalización más agresiva para comparación de textos.
+        Elimina todos los caracteres no alfanuméricos y convierte a minúsculas.
         
         Args:
             texto (str): Texto a normalizar
@@ -166,17 +167,17 @@ class SyncService:
         if not texto:
             return ""
         
+        # Convertir a bytes y luego de vuelta a string para eliminar caracteres problemáticos
+        texto = texto.encode('ascii', 'ignore').decode('ascii')
+        
         # Convertir a minúsculas
         texto = texto.lower()
         
-        # Eliminar acentos y caracteres especiales
-        texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
+        # Eliminar todos los caracteres que no sean letras o números
+        texto = re.sub(r'[^a-z0-9]', '', texto)
         
-        # Eliminar caracteres no alfanuméricos y reemplazarlos por espacios
-        texto = re.sub(r'[^a-z0-9\s]', ' ', texto)
-        
-        # Eliminar espacios extras
-        texto = ' '.join(texto.split())
+        # Mostrar el resultado para depuración
+        logger.info(f"Texto normalizado agresivamente: '{texto}'")
         
         return texto
     
@@ -207,18 +208,15 @@ class SyncService:
             logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
             inquilino_encontrado = None
             
-            # Normalizar el emisor
+            # Normalizar el emisor con método agresivo
             emisor_norm = self.normalizar_texto(emisor)
-            logger.info(f"Emisor normalizado: '{emisor_norm}'")
+            logger.info(f"Emisor normalizado agresivamente: '{emisor_norm}'")
             
-            # MEJORA: Extraer palabras clave del emisor (nombres y apellidos)
-            palabras_emisor = emisor_norm.split()
-            logger.info(f"Palabras clave del emisor: {palabras_emisor}")
-            
-            # Primero intentar coincidencia exacta
+            # Primero intentar coincidencia exacta con normalización agresiva
             for inquilino in inquilinos:
                 nombre_norm = self.normalizar_texto(inquilino.propietario)
-                logger.info(f"Comparando con: '{nombre_norm}' (ID: {inquilino.id})")
+                logger.info(f"Comparando con: '{inquilino.propietario}' (ID: {inquilino.id})")
+                logger.info(f"Nombre normalizado agresivamente: '{nombre_norm}'")
                 logger.info(f"COMPARACIÓN EXACTA: '{emisor_norm}' vs '{nombre_norm}'")
                 logger.info(f"¿Son iguales? {emisor_norm == nombre_norm}")
                 
@@ -229,22 +227,37 @@ class SyncService:
             
             # Si no hay coincidencia exacta, intentar coincidencia parcial
             if not inquilino_encontrado:
+                logger.info("No se encontró coincidencia exacta, intentando coincidencia parcial...")
                 # MEJORA: Usar puntuación para evaluar la calidad de la coincidencia
                 mejor_puntuacion = 0
                 mejor_inquilino = None
                 
+                # Extraer palabras clave del emisor (nombres y apellidos)
+                # Usamos el texto original para dividir en palabras
+                palabras_emisor = [self.normalizar_texto(palabra) for palabra in emisor.split()]
+                logger.info(f"Palabras clave del emisor: {palabras_emisor}")
+                
                 for inquilino in inquilinos:
-                    nombre_norm = self.normalizar_texto(inquilino.propietario)
-                    palabras_nombre = nombre_norm.split()
+                    # Extraer palabras del nombre del inquilino
+                    palabras_nombre = [self.normalizar_texto(palabra) for palabra in inquilino.propietario.split()]
+                    logger.info(f"Palabras del nombre: {palabras_nombre}")
                     
                     # Calcular puntuación basada en palabras coincidentes
                     puntuacion = 0
-                    for palabra in palabras_emisor:
-                        if palabra in palabras_nombre:
-                            puntuacion += 1
+                    for palabra_emisor in palabras_emisor:
+                        if not palabra_emisor:  # Ignorar palabras vacías
+                            continue
+                        for palabra_nombre in palabras_nombre:
+                            if not palabra_nombre:  # Ignorar palabras vacías
+                                continue
+                            # Si la palabra del emisor está contenida en la palabra del nombre o viceversa
+                            if palabra_emisor in palabra_nombre or palabra_nombre in palabra_emisor:
+                                puntuacion += 1
+                                logger.info(f"Palabra coincidente: '{palabra_emisor}' en '{palabra_nombre}'")
+                                break
                     
                     # Normalizar puntuación (0-100%)
-                    max_palabras = max(len(palabras_emisor), len(palabras_nombre))
+                    max_palabras = max(len([p for p in palabras_emisor if p]), len([p for p in palabras_nombre if p]))
                     if max_palabras > 0:
                         puntuacion_porcentaje = (puntuacion / max_palabras) * 100
                     else:
@@ -275,6 +288,13 @@ class SyncService:
                         inquilino_rut = re.sub(r'[^0-9kK]', '', inquilino.rut)
                         if rut_norm == inquilino_rut:
                             logger.info(f"¡Coincidencia por RUT! Socio: {inquilino.propietario}")
+                            inquilino_encontrado = inquilino
+                            break
+                    
+                    # Si el inquilino tiene un campo propiedad, verificar si contiene el RUT
+                    if hasattr(inquilino, 'propiedad'):
+                        if rut_norm in re.sub(r'[^0-9kK]', '', inquilino.propiedad):
+                            logger.info(f"¡RUT encontrado en campo propiedad! Socio: {inquilino.propietario}")
                             inquilino_encontrado = inquilino
                             break
             
@@ -323,7 +343,7 @@ class SyncService:
                         return False
                 
                 # Actualizar el estado de pago
-                setattr(inquilino_encontrado, columna, "Pagado")
+                setattr(inquilino_encontrado, columna, 'Pagado')
                 db.session.commit()
                 logger.info(f"Estado de pago actualizado para {inquilino_encontrado.propietario}, columna {columna}")
                 return True
@@ -339,23 +359,24 @@ class SyncService:
         Obtiene la fecha de la última sincronización.
         
         Returns:
-            dict: Información de la última sincronización
+            dict: Información sobre la última sincronización
         """
         try:
+            # Buscar la configuración por clave
             config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
-            if config:
-                fecha_str = config.valor
-                logger.info(f"Fecha de última sincronización encontrada: {fecha_str}")
+            
+            if config and config.valor:
+                logger.info(f"Fecha de última sincronización encontrada: {config.valor}")
                 return {
                     "success": True,
-                    "fecha_sincronizacion": fecha_str
+                    "fecha_sincronizacion": config.valor
                 }
-            else:
-                logger.info("No hay registros de última sincronización")
-                return {
-                    "success": False,
-                    "mensaje": "No hay registros de sincronización previa"
-                }
+                
+            logger.info("No se encontró fecha de última sincronización")
+            return {
+                "success": False,
+                "mensaje": "No hay registros de sincronización previa"
+            }
         except Exception as e:
             logger.error(f"Error al obtener última sincronización: {str(e)}")
             raise
