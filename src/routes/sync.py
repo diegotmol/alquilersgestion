@@ -1,5 +1,5 @@
 """
-Rutas para la sincronización de correos electrónicos.
+Modificación de la ruta de sincronización para soportar el parámetro de año.
 """
 from flask import Blueprint, request, jsonify, session, redirect, url_for
 import logging
@@ -29,12 +29,13 @@ def sync_emails():
         
         credentials = data.get('credentials')
         mes = data.get('mes')
+        año = data.get('año')  # Nuevo parámetro para el año
         
         if not credentials:
             return jsonify({'error': 'No se proporcionaron credenciales', 'mensaje': 'Credenciales no encontradas en la solicitud'}), 400
         
-        logger.info(f"Iniciando sincronización de correos para el mes: {mes}")
-        result = sync_service.sync_emails(credentials, mes)
+        logger.info(f"Iniciando sincronización de correos para el mes: {mes}, año: {año}")
+        result = sync_service.sync_emails(credentials, mes, año)
         return jsonify(result)
     except Exception as e:
         # Asegurar que siempre devolvemos JSON, incluso en caso de error
