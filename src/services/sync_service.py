@@ -1,5 +1,6 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
+Versión modificada para filtrar por fecha de recepción del correo.
 """
 import logging
 from datetime import datetime
@@ -37,22 +38,59 @@ class SyncService:
             query = "from:serviciodetransferencias@bancochile.cl"
             
             logger.info(f"Ejecutando búsqueda con query: {query}")
+            logger.info(f"Filtrando por mes: {mes}, año: {año}")
             
             # Obtener correos
             emails = self.gmail_service.get_emails(credentials, query=query)
             
             logger.info(f"Se encontraron {len(emails)} correos del servicio de transferencias.")
             
-            # Si se especificó un mes, filtrar los correos por la fecha extraída
+            # Si se especificó un mes, filtrar los correos por la fecha de RECEPCIÓN
             if mes and mes != 'todos':
                 emails_filtrados = []
                 for email in emails:
+                    # Extraer la fecha de recepción del correo
+                    fecha_recepcion = None
+                    if 'internalDate' in email:
+                        try:
+                            # internalDate es un timestamp en milisegundos
+                            timestamp_ms = int(email['internalDate'])
+                            fecha_recepcion = datetime.fromtimestamp(timestamp_ms/1000.0)
+                            mes_recepcion = f"{fecha_recepcion.month:02d}"
+                            año_recepcion = fecha_recepcion.year
+                            
+                            logger.info(f"Correo recibido en: {fecha_recepcion}, Mes: {mes_recepcion}, Año: {año_recepcion}")
+                            
+                            # Filtrar por mes de recepción y opcionalmente por año
+                            if mes_recepcion == mes:
+                                # Si se especificó un año, verificar también el año
+                                if año and int(año) != año_recepcion:
+                                    logger.info(f"Año no coincide: {año} != {año_recepcion}")
+                                    continue
+                                
+                                emails_filtrados.append(email)
+                                logger.info(f"Correo añadido a filtrados por fecha de recepción")
+                                continue
+                        except Exception as e:
+                            logger.error(f"Error al procesar fecha de recepción: {str(e)}")
+                    
+                    # Si no se pudo filtrar por fecha de recepción, intentar con la fecha de la transferencia
+                    # como método de respaldo
                     transfer_data = self.email_parser.parse_banco_chile_email(email)
                     if transfer_data and 'mes' in transfer_data:
-                        # Convertir mes a formato de dos dígitos para comparar
                         mes_correo = f"{transfer_data['mes']:02d}"
+                        año_correo = transfer_data['año']
+                        
+                        logger.info(f"Transferencia de: {mes_correo}/{año_correo}")
+                        
                         if mes_correo == mes:
+                            # Si se especificó un año, verificar también el año
+                            if año and int(año) != año_correo:
+                                logger.info(f"Año no coincide: {año} != {año_correo}")
+                                continue
+                            
                             emails_filtrados.append(email)
+                            logger.info(f"Correo añadido a filtrados por fecha de transferencia")
                 
                 logger.info(f"Después de filtrar por mes {mes}, quedan {len(emails_filtrados)} correos")
                 emails = emails_filtrados
@@ -127,17 +165,13 @@ class SyncService:
         """
         try:
             # Verificar que tenemos los datos necesarios
-            if not transfer_data or 'emisor' not in transfer_data:
+            if not transfer_data or ('emisor' not in transfer_data and 'rut_destinatario' not in transfer_data):
                 logger.warning("Datos de transferencia incompletos, no se puede actualizar pago")
                 return False
             
             # Obtener el nombre del emisor (quien hizo la transferencia)
             emisor = transfer_data.get('emisor', '').strip().lower()
             logger.info(f"Emisor original: '{emisor}'")
-            
-            if not emisor:
-                logger.warning("Emisor no encontrado en los datos de transferencia")
-                return False
             
             # Buscar inquilino por nombre con comparación más robusta
             inquilinos = Inquilino.query.all()
