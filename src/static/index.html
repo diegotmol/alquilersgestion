@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Pagos de Alquileres</title>
+    <title>Gestión de Pagos de Socios</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -15,16 +15,16 @@
         <div class="sidebar" id="sidebar">
             <h2>Menú</h2>
             <button id="ver-pagos-btn">Ver Pagos</button>
-            <button id="anadir-inquilinos-btn">Añadir Inquilinos</button>
+            <button id="anadir-inquilinos-btn">Añadir Socio</button>
         </div>
         
         <div class="main-content">
             <div class="header">
-                <h1>Gestión de Pagos de Alquileres</h1>
+                <h1>Gestión de Pagos de Socios</h1>
             </div>
             
             <div class="content">
-                <p>Conecta tu cuenta de Gmail para sincronizar los pagos de alquileres.</p>
+                <p>Conecta tu cuenta de Gmail para sincronizar los pagos de socios.</p>
                 <button id="sincronizar-correos-btn">Sincronizar Correos</button>
                 
                 <div id="ultima-sincronizacion">
@@ -54,8 +54,8 @@
                     <table id="tabla-inquilinos">
                         <thead>
                             <tr>
-                                <th>Propietario</th>
-                                <th>Propiedad</th>
+                                <th>Nombre del Socio</th>
+                                <th>Número de Socio</th>
                                 <th>Número de Teléfono</th>
                                 <th>Monto a Pagar</th>
                                 <th>Estado de pago</th>
@@ -77,10 +77,10 @@
         </div>
     </div>
     
-    <!-- Modal para añadir/editar inquilino -->
+    <!-- Modal para añadir/editar socio -->
     <div id="modal-inquilino" class="modal">
         <div class="modal-content">
-            <h2 id="modal-titulo">Añadir Inquilino</h2>
+            <h2 id="modal-titulo">Añadir Socio</h2>
             <form id="form-inquilino">
                 <input type="hidden" id="inquilino-id">
                 <div class="form-group">
@@ -88,16 +88,12 @@
                     <input type="text" id="nombre" required>
                 </div>
                 <div class="form-group">
-                    <label for="propiedad">Propiedad:</label>
+                    <label for="propiedad">Número de Socio:</label>
                     <input type="text" id="propiedad" required>
                 </div>
                 <div class="form-group">
                     <label for="telefono">Número de Teléfono:</label>
                     <input type="text" id="telefono" required>
-                </div>
-                <div class="form-group">
-                    <label for="rut">RUT:</label>
-                    <input type="text" id="rut" placeholder="Ej: 12345678-9">
                 </div>
                 <div class="form-group">
                     <label for="monto">Monto a Pagar:</label>
