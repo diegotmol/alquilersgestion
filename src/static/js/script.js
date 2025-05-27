@@ -1,8 +1,8 @@
 // Variables globales
 let inquilinos = [];
 let editandoId = null;
-let inquilinosFiltrados = [];
 let mesActual = null;
+let añoActual = new Date().getFullYear(); // Año actual por defecto
 
 // Elementos DOM
 document.addEventListener('DOMContentLoaded', function() {
@@ -109,7 +109,6 @@ function cargarInquilinos() {
         .then(response => response.json())
         .then(data => {
             inquilinos = data;
-            inquilinosFiltrados = [...inquilinos]; // Inicialmente todos los inquilinos
             renderizarTablaInquilinos();
             calcularTotales();
         })
@@ -123,13 +122,12 @@ function cargarInquilinos() {
 // Cargar datos de ejemplo (solo para demostración si no hay backend)
 function cargarDatosEjemplo() {
     inquilinos = [
-        { id: 1, propietario: 'Juan Pérez', propiedad: 'Casa en Santiago', telefono: '+56 9 12345678', monto: 800, estado_pago: 'No pagado', mes: '1' },
-        { id: 2, propietario: 'Maria Gómez', propiedad: 'Departamento en Valparaíso', telefono: '+56 9 98765432', monto: 650, estado_pago: 'Pagado', mes: '1' },
-        { id: 3, propietario: 'Carlos López', propiedad: 'Oficina en Concepción', telefono: '+56 9 55555555', monto: 1200, estado_pago: 'Pagado', mes: '2' },
-        { id: 4, propietario: 'Ana Rodríguez', propiedad: 'Departamento en Santiago', telefono: '+56 9 87654321', monto: 750, estado_pago: 'Pagado', mes: '3' },
-        { id: 5, propietario: 'Luis Martínez', propiedad: 'Casa en Valparaíso', telefono: '+56 9 11112222', monto: 900, estado_pago: 'Pagado', mes: '4' }
+        { id: 1, propietario: 'Juan Pérez', propiedad: 'Casa en Santiago', telefono: '+56 9 12345678', monto: 800, estado_pago: 'No pagado' },
+        { id: 2, propietario: 'Maria Gómez', propiedad: 'Departamento en Valparaíso', telefono: '+56 9 98765432', monto: 650, estado_pago: 'Pagado' },
+        { id: 3, propietario: 'Carlos López', propiedad: 'Oficina en Concepción', telefono: '+56 9 55555555', monto: 1200, estado_pago: 'Pagado' },
+        { id: 4, propietario: 'Ana Rodríguez', propiedad: 'Departamento en Santiago', telefono: '+56 9 87654321', monto: 750, estado_pago: 'Pagado' },
+        { id: 5, propietario: 'Luis Martínez', propiedad: 'Casa en Valparaíso', telefono: '+56 9 11112222', monto: 900, estado_pago: 'Pagado' }
     ];
-    inquilinosFiltrados = [...inquilinos]; // Inicialmente todos los inquilinos
     renderizarTablaInquilinos();
     calcularTotales();
 }
@@ -139,19 +137,33 @@ function renderizarTablaInquilinos() {
     const tbody = document.getElementById('inquilinos-body');
     tbody.innerHTML = '';
 
-    // Usar inquilinosFiltrados en lugar de inquilinos
-    inquilinosFiltrados.forEach(inquilino => {
+    // MODIFICACIÓN: Siempre usar todos los inquilinos, no filtrar por mes
+    inquilinos.forEach(inquilino => {
         const tr = document.createElement('tr');
         
+        // MODIFICACIÓN: Determinar el estado de pago según el mes seleccionado
+        // Si existe la columna para el mes y año seleccionados, usar ese valor
+        // De lo contrario, usar el estado_pago general
+        let estadoPago = 'No pagado'; // Valor por defecto
+        
+        // Intentar obtener el estado de pago para el mes y año seleccionados
+        const campoMesAño = `pago_${mesActual}_${añoActual}`;
+        if (inquilino[campoMesAño]) {
+            estadoPago = inquilino[campoMesAño];
+        } else {
+            // Si no existe el campo específico, usar el estado_pago general
+            estadoPago = inquilino.estado_pago;
+        }
+        
         // Aplicar color según estado de pago
-        const propietarioClass = inquilino.estado_pago === 'Pagado' ? 'pagado' : 'no-pagado';
+        const propietarioClass = estadoPago === 'Pagado' ? 'pagado' : 'no-pagado';
         
         tr.innerHTML = `
             <td class="${propietarioClass}">${inquilino.propietario}</td>
             <td>${inquilino.propiedad}</td>
             <td>${inquilino.telefono}</td>
             <td>$${inquilino.monto}</td>
-            <td class="${propietarioClass}">${inquilino.estado_pago}</td>
+            <td class="${propietarioClass}">${estadoPago}</td>
             <td>
                 <button class="btn-accion btn-eliminar" onclick="eliminarInquilino(${inquilino.id})">Eliminar</button>
                 <button class="btn-accion btn-editar" onclick="editarInquilino(${inquilino.id})">Editar</button>
@@ -168,13 +180,27 @@ function calcularTotales() {
     let totalPagado = 0;
     let totalNoPagado = 0;
 
-    // Usar inquilinosFiltrados en lugar de inquilinos para los cálculos
-    inquilinosFiltrados.forEach(inquilino => {
-        totalMonto += inquilino.monto;
-        if (inquilino.estado_pago === 'Pagado') {
-            totalPagado += inquilino.monto;
+    // MODIFICACIÓN: Usar todos los inquilinos y determinar si están pagados según el mes seleccionado
+    inquilinos.forEach(inquilino => {
+        const monto = parseFloat(inquilino.monto);
+        totalMonto += monto;
+        
+        // Determinar si está pagado según el mes y año seleccionados
+        let pagado = false;
+        
+        // Intentar obtener el estado de pago para el mes y año seleccionados
+        const campoMesAño = `pago_${mesActual}_${añoActual}`;
+        if (inquilino[campoMesAño]) {
+            pagado = inquilino[campoMesAño] === 'Pagado';
         } else {
-            totalNoPagado += inquilino.monto;
+            // Si no existe el campo específico, usar el estado_pago general
+            pagado = inquilino.estado_pago === 'Pagado';
+        }
+        
+        if (pagado) {
+            totalPagado += monto;
+        } else {
+            totalNoPagado += monto;
         }
     });
 
@@ -225,6 +251,7 @@ function sincronizarCorreosAutenticado(credentials) {
     // Obtener el mes seleccionado
     const mesSeleccionado = document.getElementById('mes').value;
 
+    // MODIFICACIÓN: Incluir el año en la sincronización
     // Llamar a la API para sincronizar correos
     fetch('/api/sync/emails', {
         method: 'POST',
@@ -233,7 +260,8 @@ function sincronizarCorreosAutenticado(credentials) {
         },
         body: JSON.stringify({
             credentials: credentials,
-            mes: mesSeleccionado !== 'todos' ? mesSeleccionado : null
+            mes: mesSeleccionado !== 'todos' ? mesSeleccionado : null,
+            año: añoActual.toString() // Incluir el año actual
         })
     })
     .then(response => response.json())
@@ -272,12 +300,11 @@ function cambiarMes() {
     const mesSeleccionado = document.getElementById('mes').value;
     mesActual = mesSeleccionado;
     
-    if (mesSeleccionado === 'todos') {
-        inquilinosFiltrados = [...inquilinos];
-    } else {
-        inquilinosFiltrados = inquilinos.filter(inquilino => inquilino.mes === mesSeleccionado);
-    }
+    // MODIFICACIÓN: No filtrar los inquilinos, solo actualizar el mes actual
+    // y volver a renderizar la tabla con todos los inquilinos
     
+    // Renderizar la tabla con todos los inquilinos pero mostrando el estado
+    // de pago correspondiente al mes seleccionado
     renderizarTablaInquilinos();
     calcularTotales();
 }
@@ -306,12 +333,10 @@ function cerrarModalAuth() {
 function guardarInquilino(event) {
     event.preventDefault();
     
-    const propietario = document.getElementById('propietario').value;
+    const propietario = document.getElementById('nombre').value;
     const propiedad = document.getElementById('propiedad').value;
     const telefono = document.getElementById('telefono').value;
     const monto = parseFloat(document.getElementById('monto').value);
-    const estado_pago = document.getElementById('estado-pago').value;
-    const mes = document.getElementById('mes-inquilino').value;
     
     if (editandoId) {
         // Editar inquilino existente
@@ -325,8 +350,7 @@ function guardarInquilino(event) {
                 propiedad,
                 telefono,
                 monto,
-                estado_pago,
-                mes
+                estado_pago: 'No pagado'
             })
         })
         .then(response => response.json())
@@ -350,8 +374,7 @@ function guardarInquilino(event) {
                 propiedad,
                 telefono,
                 monto,
-                estado_pago,
-                mes
+                estado_pago: 'No pagado'
             })
         })
         .then(response => response.json())
@@ -370,13 +393,12 @@ function guardarInquilino(event) {
                 propiedad,
                 telefono,
                 monto,
-                estado_pago,
-                mes
+                estado_pago: 'No pagado'
             };
             
             inquilinos.push(nuevoInquilino);
             cerrarModal();
-            cambiarMes(); // Esto actualizará inquilinosFiltrados y renderizará la tabla
+            cambiarMes(); // Esto actualizará la tabla
         });
     }
 }
@@ -388,12 +410,10 @@ function editarInquilino(id) {
     
     editandoId = id;
     
-    document.getElementById('propietario').value = inquilino.propietario;
+    document.getElementById('nombre').value = inquilino.propietario;
     document.getElementById('propiedad').value = inquilino.propiedad;
     document.getElementById('telefono').value = inquilino.telefono;
     document.getElementById('monto').value = inquilino.monto;
-    document.getElementById('estado-pago').value = inquilino.estado_pago;
-    document.getElementById('mes-inquilino').value = inquilino.mes;
     
     document.getElementById('modal-inquilino').style.display = 'block';
 }
@@ -418,6 +438,6 @@ function eliminarInquilino(id) {
         
         // Si no hay conexión con el backend, simular eliminación (solo para demostración)
         inquilinos = inquilinos.filter(i => i.id !== id);
-        cambiarMes(); // Esto actualizará inquilinosFiltrados y renderizará la tabla
+        cambiarMes(); // Esto actualizará la tabla
     });
 }
