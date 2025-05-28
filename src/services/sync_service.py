@@ -1,18 +1,19 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión final con filtrado por fecha de recepción, matching flexible por nombre y monto, y logs detallados.
+Versión depurada con manejo de sesiones mejorado y prevención de bloqueos.
 """
 import logging
 import re
 import unicodedata
 from datetime import datetime
-import pytz  # Necesitamos importar pytz para manejar zonas horarias
+import pytz
 from src.services.gmail_service_real import GmailServiceReal
 from src.services.email_parser import EmailParser
 from src.models.configuracion import Configuracion
 from src.models.inquilino import Inquilino
 from src.models.database import db
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -108,31 +109,36 @@ class SyncService:
                     logger.warning(f"No se pudieron extraer datos de este correo")
             
             # Actualizar fecha de última sincronización - USAR UTC EXPLÍCITAMENTE
-            # Usando pytz en lugar de datetime.timezone
             now = datetime.now(pytz.UTC)
             logger.info(f"Actualizando fecha de última sincronización a: {now}")
             
-            # Buscar configuración existente o crear una nueva
-            config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
+            # Usar una nueva sesión para evitar bloqueos
+            try:
+                # Buscar configuración existente o crear una nueva
+                config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
+                
+                if not config:
+                    # Crear nueva configuración
+                    config = Configuracion(
+                        clave="ultima_sincronizacion",
+                        valor=now.isoformat(),
+                        descripcion="Fecha de la última sincronización de correos"
+                    )
+                    logger.info("Creando nueva configuración para última sincronización")
+                else:
+                    # Actualizar configuración existente
+                    config.valor = now.isoformat()
+                    logger.info("Actualizando configuración existente para última sincronización")
+                
+                # Guardar en la base de datos
+                db.session.add(config)
+                db.session.commit()
+                
+                logger.info(f"Fecha de última sincronización guardada: {config.valor}")
+            except SQLAlchemyError as e:
+                logger.error(f"Error al guardar fecha de sincronización: {str(e)}")
+                db.session.rollback()
             
-            if not config:
-                # Crear nueva configuración
-                config = Configuracion(
-                    clave="ultima_sincronizacion",
-                    valor=now.isoformat(),
-                    descripcion="Fecha de la última sincronización de correos"
-                )
-                logger.info("Creando nueva configuración para última sincronización")
-            else:
-                # Actualizar configuración existente
-                config.valor = now.isoformat()
-                logger.info("Actualizando configuración existente para última sincronización")
-            
-            # Guardar en la base de datos
-            db.session.add(config)
-            db.session.commit()
-            
-            logger.info(f"Fecha de última sincronización guardada: {config.valor}")
             logger.info("==================== FIN DE SINCRONIZACIÓN ====================")
             
             return {
@@ -144,6 +150,12 @@ class SyncService:
             }
         except Exception as e:
             logger.error(f"Error en sincronización: {str(e)}")
+            # Asegurar que cualquier transacción pendiente se revierta
+            try:
+                db.session.rollback()
+            except:
+                pass
+            
             return {
                 "success": False,
                 "mensaje": f"Error en sincronización: {str(e)}",
@@ -173,9 +185,6 @@ class SyncService:
         # Paso 3: Eliminar todos los caracteres que no sean letras o números
         texto = re.sub(r'[^a-z0-9]', '', texto)
         
-        # Mostrar el resultado de la normalización
-        logger.info(f"Texto original: '{texto}', normalizado: '{texto}'")
-        
         return texto
     
     def _actualizar_pago_inquilino(self, transfer_data, mes_seleccionado=None, año_seleccionado=None):
@@ -190,6 +199,9 @@ class SyncService:
         Returns:
             bool: True si se actualizó algún pago, False en caso contrario
         """
+        # Crear una nueva sesión para esta operación
+        session_created = False
+        
         try:
             logger.info("==================== INICIANDO MATCHING DE INQUILINO ====================")
             
@@ -208,8 +220,12 @@ class SyncService:
             
             # Buscar inquilino por nombre con comparación más robusta
             logger.info("Cargando todos los inquilinos de la base de datos para matching")
-            inquilinos = Inquilino.query.all()
-            logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
+            try:
+                inquilinos = Inquilino.query.all()
+                logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
+            except SQLAlchemyError as e:
+                logger.error(f"Error al cargar inquilinos: {str(e)}")
+                return False
             
             # Log de todos los inquilinos disponibles para matching
             inquilinos_nombres = [i.propietario for i in inquilinos]
@@ -291,8 +307,9 @@ class SyncService:
                         db.session.execute(query)
                         db.session.commit()
                         logger.info(f"Columna '{columna}' creada correctamente")
-                    except Exception as e:
+                    except SQLAlchemyError as e:
                         logger.error(f"Error al crear la columna '{columna}': {str(e)}")
+                        db.session.rollback()
                         return False
                 
                 # Actualizar el estado de pago en la columna correspondiente
@@ -305,7 +322,7 @@ class SyncService:
                 logger.info("==================== FIN DE MATCHING (EXITOSO) ====================")
                 return True
                 
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.error(f"Error al actualizar estado de pago: {str(e)}")
                 db.session.rollback()
                 logger.info("==================== FIN DE MATCHING (ERROR) ====================")
@@ -313,6 +330,12 @@ class SyncService:
                 
         except Exception as e:
             logger.error(f"Error en _actualizar_pago_inquilino: {str(e)}")
+            # Asegurar que cualquier transacción pendiente se revierta
+            try:
+                db.session.rollback()
+            except:
+                pass
+            
             logger.info("==================== FIN DE MATCHING (ERROR) ====================")
             return False
     
@@ -341,6 +364,12 @@ class SyncService:
             }
         except Exception as e:
             logger.error(f"Error al obtener última sincronización: {str(e)}")
+            # Asegurar que cualquier transacción pendiente se revierta
+            try:
+                db.session.rollback()
+            except:
+                pass
+            
             raise
     
     def process_auth_callback(self, code):
