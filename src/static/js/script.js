@@ -14,6 +14,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Event listeners
         configurarEventosBotones();
 
+        // Verificar si hay un mes guardado en localStorage
+        const mesGuardado = localStorage.getItem('mesSeleccionado');
+        if (mesGuardado) {
+            // Establecer el mes guardado en el selector
+            document.getElementById('mes').value = mesGuardado;
+            // Limpiar el localStorage después de usarlo
+            localStorage.removeItem('mesSeleccionado');
+            console.log('Mes restaurado desde localStorage:', mesGuardado);
+        }
+
         // Inicializar mes actual
         mesActual = document.getElementById('mes').value;
         console.log('Mes inicial seleccionado:', mesActual);
@@ -313,6 +323,11 @@ function verPagos() {
 
 // Función para sincronizar correos
 function sincronizarCorreos() {
+    // Guardar el mes seleccionado en localStorage antes de redirigir
+    const mesSeleccionado = document.getElementById('mes').value;
+    localStorage.setItem('mesSeleccionado', mesSeleccionado);
+    console.log('Mes guardado en localStorage antes de autenticación:', mesSeleccionado);
+    
     // Mostrar modal de autenticación de Google
     const modal = document.getElementById('modal-google-auth');
     modal.style.display = 'block';
