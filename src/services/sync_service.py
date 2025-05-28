@@ -1,6 +1,6 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión depurada con manejo de sesiones mejorado y prevención de bloqueos.
+Versión final con filtrado por fecha de recepción, matching flexible por nombre y monto, y logs detallados.
 """
 import logging
 import re
@@ -331,9 +331,8 @@ class SyncService:
                         db.session.execute(query)
                         db.session.commit()
                         logger.info(f"Columna '{columna}' creada correctamente")
-                    except SQLAlchemyError as e:
+                    except Exception as e:
                         logger.error(f"Error al crear la columna '{columna}': {str(e)}")
-                        db.session.rollback()
                         return False
                 
                 # Actualizar el estado de pago en la columna correspondiente
@@ -345,15 +344,57 @@ class SyncService:
                 logger.info(f"ACTUALIZACIÓN EXITOSA: Estado de pago actualizado para {inquilino_encontrado.propietario} en columna {columna}")
                 logger.info("==================== FIN DE MATCHING (EXITOSO) ====================")
                 return True
-            except SQLAlchemyError as e:
+                
+            except Exception as e:
                 logger.error(f"Error al actualizar estado de pago: {str(e)}")
                 db.session.rollback()
+                logger.info("==================== FIN DE MATCHING (ERROR) ====================")
                 return False
+                
         except Exception as e:
-            logger.error(f"Error en actualización de pago: {str(e)}")
-            # Asegurar que cualquier transacción pendiente se revierta
-            try:
-                db.session.rollback()
-            except:
-                pass
+            logger.error(f"Error en _actualizar_pago_inquilino: {str(e)}")
+            logger.info("==================== FIN DE MATCHING (ERROR) ====================")
             return False
+    
+    def get_last_sync(self):
+        """
+        Obtiene la fecha de la última sincronización.
+        
+        Returns:
+            dict: Información sobre la última sincronización
+        """
+        try:
+            # Buscar la configuración por clave
+            config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
+            
+            if config and config.valor:
+                logger.info(f"Fecha de última sincronización encontrada: {config.valor}")
+                return {
+                    "success": True,
+                    "fecha_sincronizacion": config.valor
+                }
+                
+            logger.info("No se encontró fecha de última sincronización")
+            return {
+                "success": False,
+                "mensaje": "No hay registros de sincronización previa"
+            }
+        except Exception as e:
+            logger.error(f"Error al obtener última sincronización: {str(e)}")
+            raise
+    
+    def process_auth_callback(self, code):
+        """
+        Procesa el callback de autorización de OAuth2 con Gmail.
+        
+        Args:
+            code (str): Código de autorización
+            
+        Returns:
+            dict: Credenciales de acceso
+        """
+        try:
+            return self.gmail_service.get_token(code)
+        except Exception as e:
+            logger.error(f"Error en callback de autorización: {str(e)}")
+            raise
