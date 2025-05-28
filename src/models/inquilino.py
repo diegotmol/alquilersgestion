@@ -1,5 +1,6 @@
 from src.models.database import db
 from datetime import datetime
+from sqlalchemy import inspect, text
 
 class Inquilino(db.Model):
     __tablename__ = 'inquilinos'
