@@ -21,8 +21,7 @@ def create_inquilino():
         propietario=data['propietario'],
         propiedad=data['propiedad'],
         telefono=data['telefono'],
-        monto=data['monto'],
-        estado_pago=data.get('estado_pago', 'No pagado')
+        monto=data['monto']
     )
     
     db.session.add(nuevo_inquilino)
@@ -39,7 +38,6 @@ def update_inquilino(id):
     inquilino.propiedad = data.get('propiedad', inquilino.propiedad)
     inquilino.telefono = data.get('telefono', inquilino.telefono)
     inquilino.monto = data.get('monto', inquilino.monto)
-    inquilino.estado_pago = data.get('estado_pago', inquilino.estado_pago)
     
     db.session.commit()
     
@@ -53,16 +51,3 @@ def delete_inquilino(id):
     db.session.commit()
     
     return jsonify({"message": "Inquilino eliminado correctamente"}), 200
-
-@inquilinos_bp.route('/actualizar-estado', methods=['POST'])
-def actualizar_estado_pago():
-    data = request.json
-    inquilino_id = data.get('id')
-    nuevo_estado = data.get('estado_pago')
-    
-    inquilino = Inquilino.query.get_or_404(inquilino_id)
-    inquilino.estado_pago = nuevo_estado
-    
-    db.session.commit()
-    
-    return jsonify(inquilino.to_dict())
