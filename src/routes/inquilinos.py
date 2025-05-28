@@ -1,36 +1,68 @@
-from src.models.database import db
-from datetime import datetime
+from flask import Blueprint, request, jsonify
+from src.models.inquilino import Inquilino, db
 
-class Inquilino(db.Model):
-    __tablename__ = 'inquilinos'
+inquilinos_bp = Blueprint('inquilinos', __name__)
+
+@inquilinos_bp.route('/', methods=['GET'])
+def get_inquilinos():
+    inquilinos = Inquilino.query.all()
+    return jsonify([inquilino.to_dict() for inquilino in inquilinos])
+
+@inquilinos_bp.route('/<int:id>', methods=['GET'])
+def get_inquilino(id):
+    inquilino = Inquilino.query.get_or_404(id)
+    return jsonify(inquilino.to_dict())
+
+@inquilinos_bp.route('/', methods=['POST'])
+def create_inquilino():
+    data = request.json
     
-    id = db.Column(db.Integer, primary_key=True)
-    propietario = db.Column(db.String(100), nullable=False)
-    propiedad = db.Column(db.String(100), nullable=False)
-    telefono = db.Column(db.String(20), nullable=False)
-    rut = db.Column(db.String(20), nullable=True)  # Nuevo campo RUT
-    monto = db.Column(db.Float, nullable=False)
-    estado_pago = db.Column(db.String(20), default='No pagado')
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    ultima_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    nuevo_inquilino = Inquilino(
+        propietario=data['propietario'],
+        propiedad=data['propiedad'],
+        telefono=data['telefono'],
+        monto=data['monto'],
+        estado_pago=data.get('estado_pago', 'No pagado')
+    )
     
-    def to_dict(self):
-        # Crear el diccionario base con los campos estándar
-        result = {
-            'id': self.id,
-            'propietario': self.propietario,
-            'propiedad': self.propiedad,
-            'telefono': self.telefono,
-            'rut': self.rut,
-            'monto': self.monto,
-            'estado_pago': self.estado_pago,
-            'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S'),
-            'ultima_actualizacion': self.ultima_actualizacion.strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        # Añadir dinámicamente todas las columnas de pagos mensuales
-        for key, value in self.__dict__.items():
-            if key.startswith('pago_') and not key.startswith('_sa_'):
-                result[key] = value
-        
-        return result
+    db.session.add(nuevo_inquilino)
+    db.session.commit()
+    
+    return jsonify(nuevo_inquilino.to_dict()), 201
+
+@inquilinos_bp.route('/<int:id>', methods=['PUT'])
+def update_inquilino(id):
+    inquilino = Inquilino.query.get_or_404(id)
+    data = request.json
+    
+    inquilino.propietario = data.get('propietario', inquilino.propietario)
+    inquilino.propiedad = data.get('propiedad', inquilino.propiedad)
+    inquilino.telefono = data.get('telefono', inquilino.telefono)
+    inquilino.monto = data.get('monto', inquilino.monto)
+    inquilino.estado_pago = data.get('estado_pago', inquilino.estado_pago)
+    
+    db.session.commit()
+    
+    return jsonify(inquilino.to_dict())
+
+@inquilinos_bp.route('/<int:id>', methods=['DELETE'])
+def delete_inquilino(id):
+    inquilino = Inquilino.query.get_or_404(id)
+    
+    db.session.delete(inquilino)
+    db.session.commit()
+    
+    return jsonify({"message": "Inquilino eliminado correctamente"}), 200
+
+@inquilinos_bp.route('/actualizar-estado', methods=['POST'])
+def actualizar_estado_pago():
+    data = request.json
+    inquilino_id = data.get('id')
+    nuevo_estado = data.get('estado_pago')
+    
+    inquilino = Inquilino.query.get_or_404(inquilino_id)
+    inquilino.estado_pago = nuevo_estado
+    
+    db.session.commit()
+    
+    return jsonify(inquilino.to_dict())
