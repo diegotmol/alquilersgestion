@@ -153,7 +153,7 @@ function cargarDatosEjemplo() {
     calcularTotales();
 }
 
-// Renderizar tabla de inquilinos
+// Renderizar tabla de inquilinos con logs detallados
 function renderizarTablaInquilinos() {
     const tbody = document.getElementById('inquilinos-body');
     if (!tbody) {
@@ -173,9 +173,32 @@ function renderizarTablaInquilinos() {
         const mesDosDigitos = mesActual.toString().padStart(2, '0');
         const campoMesAño = `pago_${mesDosDigitos}_${añoActual}`;
         
+        // LOGS DETALLADOS PARA LA COMPARACIÓN
+        if (inquilino.propietario === 'Diego Alfredo Tapia') {
+            console.log(`--- COMPARACIÓN PARA DIEGO ALFREDO TAPIA ---`);
+            console.log(`Mes actual: ${mesActual}, formateado: ${mesDosDigitos}`);
+            console.log(`Año actual: ${añoActual}`);
+            console.log(`Campo a verificar: ${campoMesAño}`);
+            console.log(`¿El campo existe en el objeto?: ${campoMesAño in inquilino}`);
+            console.log(`Valor del campo: "${inquilino[campoMesAño]}"`);
+            console.log(`Tipo de dato: ${typeof inquilino[campoMesAño]}`);
+            console.log(`Comparación estricta con 'Pagado': ${inquilino[campoMesAño] === 'Pagado'}`);
+            console.log(`Comparación flexible: ${inquilino[campoMesAño] && inquilino[campoMesAño].toString().trim().toLowerCase() === 'pagado'}`);
+            console.log(`Objeto inquilino completo:`, inquilino);
+        }
+        
         // Verificar si el campo existe y tiene el valor "Pagado"
         if (inquilino[campoMesAño] === 'Pagado') {
             estadoPago = 'Pagado';
+            // Log adicional cuando se marca como pagado
+            if (inquilino.propietario === 'Diego Alfredo Tapia') {
+                console.log(`✅ MARCADO COMO PAGADO`);
+            }
+        } else {
+            // Log cuando NO se marca como pagado
+            if (inquilino.propietario === 'Diego Alfredo Tapia') {
+                console.log(`❌ NO MARCADO COMO PAGADO`);
+            }
         }
         
         // Aplicar color según estado de pago
@@ -196,6 +219,7 @@ function renderizarTablaInquilinos() {
         tbody.appendChild(tr);
     });
 }
+
 
 // Calcular totales
 function calcularTotales() {
