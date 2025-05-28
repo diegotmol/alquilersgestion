@@ -211,13 +211,16 @@ function cargarInquilinos() {
             })
             .catch(error => {
                 console.error('Error al cargar socios:', error);
-                // Si no hay conexión con el backend, usar datos de ejemplo para demostración
-                console.log('Cargando datos de ejemplo como respaldo...');
-                cargarDatosEjemplo();
+                // Mostrar mensaje de error en lugar de cargar datos de ejemplo
+                alert('Error al conectar con la base de datos. Por favor, verifica la conexión.');
+                inquilinos = []; // Vaciar el array de inquilinos
+                renderizarTablaInquilinos(); // Renderizar tabla vacía
+                calcularTotales(); // Calcular totales (serán cero)
                 resolve([]);
             });
     });
 }
+
 
 // Cargar datos de ejemplo (solo para demostración si no hay backend)
 function cargarDatosEjemplo() {
@@ -235,55 +238,41 @@ function cargarDatosEjemplo() {
 
 // Renderizar tabla de inquilinos
 function renderizarTablaInquilinos() {
-    console.log('Renderizando tabla de inquilinos para mes:', mesActual);
-    try {
-        const tbody = document.getElementById('inquilinos-body');
-        if (!tbody) {
-            console.error('Elemento inquilinos-body no encontrado');
-            return;
+    console.log('Renderizando tabla de inquilinos...');
+    const tbody = document.getElementById('inquilinos-body');
+    tbody.innerHTML = '';
+
+    // MODIFICACIÓN: Siempre usar todos los inquilinos, no filtrar por mes
+    inquilinos.forEach(inquilino => {
+        const tr = document.createElement('tr');
+        
+        // Determinar el estado de pago según el mes seleccionado
+        // Si existe la columna para el mes y año seleccionados, usar ese valor
+        let estadoPago = 'No pagado'; // Valor por defecto
+        
+        // Intentar obtener el estado de pago para el mes y año seleccionados
+        const campoMesAño = `pago_${mesActual}_${añoActual}`;
+        if (inquilino[campoMesAño]) {
+            estadoPago = inquilino[campoMesAño];
         }
         
-        tbody.innerHTML = '';
-
-        // MODIFICACIÓN: Siempre usar todos los inquilinos, no filtrar por mes
-        inquilinos.forEach(inquilino => {
-            const tr = document.createElement('tr');
-            
-            // MODIFICACIÓN: Determinar el estado de pago según el mes seleccionado
-            // Si existe la columna para el mes y año seleccionados, usar ese valor
-            // De lo contrario, usar el estado_pago general
-            let estadoPago = 'No pagado'; // Valor por defecto
-            
-            // Intentar obtener el estado de pago para el mes y año seleccionados
-            const campoMesAño = `pago_${mesActual}_${añoActual}`;
-            console.log(`Buscando campo ${campoMesAño} para inquilino ${inquilino.id}`);
-            
-            if (inquilino[campoMesAño]) {
-                estadoPago = inquilino[campoMesAño];
-                console.log(`Campo ${campoMesAño} encontrado:`, estadoPago);
-            } else {
-                // Si no existe el campo específico, usar el estado_pago general
-                estadoPago = inquilino.estado_pago || 'No pagado';
-                console.log(`Campo ${campoMesAño} no encontrado, usando estado_pago general:`, estadoPago);
-            }
-            
-            // Aplicar color según estado de pago
-            const propietarioClass = estadoPago === 'Pagado' ? 'pagado' : 'no-pagado';
-            
-            tr.innerHTML = `
-                <td class="${propietarioClass}">${inquilino.propietario}</td>
-                <td>${inquilino.propiedad}</td>
-                <td>${inquilino.telefono}</td>
-                <td>$${inquilino.monto}</td>
-                <td class="${propietarioClass}">${estadoPago}</td>
-                <td>
-                    <button class="btn-accion btn-eliminar" onclick="eliminarInquilino(${inquilino.id})">Eliminar</button>
-                    <button class="btn-accion btn-editar" onclick="editarInquilino(${inquilino.id})">Editar</button>
-                </td>
-            `;
-            
-            tbody.appendChild(tr);
-        });
+        // Aplicar color según estado de pago
+        const propietarioClass = estadoPago === 'Pagado' ? 'pagado' : 'no-pagado';
+        
+        tr.innerHTML = `
+            <td class="${propietarioClass}">${inquilino.propietario}</td>
+            <td>${inquilino.propiedad}</td>
+            <td>${inquilino.telefono}</td>
+            <td>$${inquilino.monto}</td>
+            <td class="${propietarioClass}">${estadoPago}</td>
+            <td>
+                <button class="btn-accion btn-eliminar" onclick="eliminarInquilino(${inquilino.id})">Eliminar</button>
+                <button class="btn-accion btn-editar" onclick="editarInquilino(${inquilino.id})">Editar</button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
         
         console.log('Tabla de inquilinos renderizada correctamente');
     } catch (error) {
@@ -311,10 +300,8 @@ function calcularTotales() {
             const campoMesAño = `pago_${mesActual}_${añoActual}`;
             if (inquilino[campoMesAño]) {
                 pagado = inquilino[campoMesAño] === 'Pagado';
-            } else {
-                // Si no existe el campo específico, usar el estado_pago general
-                pagado = inquilino.estado_pago === 'Pagado';
             }
+            // Eliminada la referencia a estado_pago que ya no existe
             
             if (pagado) {
                 totalPagado += monto;
@@ -336,6 +323,7 @@ function calcularTotales() {
         console.error('Error al calcular totales:', error);
     }
 }
+
 
 // Ver pagos (oculta/muestra el menú lateral izquierdo)
 function verPagos() {
@@ -634,105 +622,77 @@ function cerrarModalAuth() {
 
 // Guardar inquilino (nuevo o editado)
 function guardarInquilino(event) {
-    console.log('Guardando inquilino...');
-    try {
-        event.preventDefault();
-        
-        const nombreInput = document.getElementById('nombre');
-        const propiedadInput = document.getElementById('propiedad');
-        const telefonoInput = document.getElementById('telefono');
-        const montoInput = document.getElementById('monto');
-        
-        if (!nombreInput || !propiedadInput || !telefonoInput || !montoInput) {
-            console.error('Uno o más elementos del formulario no encontrados');
-            return;
-        }
-        
-        const propietario = nombreInput.value;
-        const propiedad = propiedadInput.value;
-        const telefono = telefonoInput.value;
-        const monto = parseFloat(montoInput.value);
-        
-        console.log('Datos del inquilino:', {propietario, propiedad, telefono, monto, editandoId});
-        
-        if (editandoId) {
-            // Editar inquilino existente
-            console.log(`Editando inquilino existente con ID: ${editandoId}`);
-            fetch(`/api/inquilinos/${editandoId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    propietario,
-                    propiedad,
-                    telefono,
-                    monto,
-                    estado_pago: 'No pagado'
-                })
+    event.preventDefault();
+    
+    const propietario = document.getElementById('nombre').value;
+    const propiedad = document.getElementById('propiedad').value;
+    const telefono = document.getElementById('telefono').value;
+    const monto = parseFloat(document.getElementById('monto').value);
+    
+    if (editandoId) {
+        // Editar inquilino existente
+        fetch(`/api/inquilinos/${editandoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                propietario,
+                propiedad,
+                telefono,
+                monto
             })
-            .then(response => {
-                console.log('Respuesta de API PUT inquilinos recibida:', response.status);
-                return response.json();
+        })
+        .then(response => response.json())
+        .then(data => {
+            cerrarModal();
+            cargarInquilinos();
+            alert('Socio actualizado correctamente');
+        })
+        .catch(error => {
+            console.error('Error al actualizar socio:', error);
+            alert('Error al actualizar socio. Por favor, intenta de nuevo.');
+        });
+    } else {
+        // Añadir nuevo inquilino
+        fetch('/api/inquilinos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                propietario,
+                propiedad,
+                telefono,
+                monto
             })
-            .then(data => {
-                console.log('Inquilino actualizado:', data);
-                cerrarModal();
-                cargarInquilinos();
-            })
-            .catch(error => {
-                console.error('Error al actualizar socio:', error);
-                alert('Error al actualizar socio. Por favor, intenta de nuevo.');
-            });
-        } else {
-            // Añadir nuevo inquilino
-            console.log('Añadiendo nuevo inquilino');
-            fetch('/api/inquilinos/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    propietario,
-                    propiedad,
-                    telefono,
-                    monto,
-                    estado_pago: 'No pagado'
-                })
-            })
-            .then(response => {
-                console.log('Respuesta de API POST inquilinos recibida:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Nuevo inquilino añadido:', data);
-                cerrarModal();
-                cargarInquilinos();
-            })
-            .catch(error => {
-                console.error('Error al añadir socio:', error);
-                alert('Error al añadir socio. Por favor, intenta de nuevo.');
-                
-                // Si no hay conexión con el backend, simular añadir inquilino (solo para demostración)
-                console.log('Simulando añadir inquilino como respaldo...');
-                const nuevoInquilino = {
-                    id: inquilinos.length + 1,
-                    propietario,
-                    propiedad,
-                    telefono,
-                    monto,
-                    estado_pago: 'No pagado'
-                };
-                
-                inquilinos.push(nuevoInquilino);
-                cerrarModal();
-                cambiarMes(); // Esto actualizará la tabla
-            });
-        }
-    } catch (error) {
-        console.error('Error en guardarInquilino:', error);
-        alert('Error al guardar socio. Por favor, intenta de nuevo.');
+        })
+        .then(response => response.json())
+        .then(data => {
+            cerrarModal();
+            cargarInquilinos();
+            alert('Socio añadido correctamente');
+        })
+        .catch(error => {
+            console.error('Error al añadir socio:', error);
+            alert('Error al añadir socio. Por favor, intenta de nuevo.');
+            
+            // Si no hay conexión con el backend, simular añadir inquilino (solo para demostración)
+            const nuevoInquilino = {
+                id: inquilinos.length + 1,
+                propietario,
+                propiedad,
+                telefono,
+                monto
+            };
+            
+            inquilinos.push(nuevoInquilino);
+            cerrarModal();
+            cambiarMes(); // Esto actualizará la tabla
+        });
     }
+}
+
 }
 
 // Editar inquilino
