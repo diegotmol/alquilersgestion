@@ -3,6 +3,7 @@ let inquilinos = [];
 let editandoId = null;
 let mesActual = null;
 let añoActual = new Date().getFullYear(); // Año actual por defecto
+let mesSeleccionadoAntesDeSincronizar = null; // Para recordar el mes seleccionado
 
 // Elementos DOM
 document.addEventListener('DOMContentLoaded', function() {
@@ -21,6 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Inicializar mes actual
     mesActual = document.getElementById('mes').value;
+    
+    // Verificar si hay un mes guardado en localStorage
+    const mesGuardado = localStorage.getItem('mesSeleccionado');
+    if (mesGuardado) {
+        mesActual = mesGuardado;
+        document.getElementById('mes').value = mesGuardado;
+        console.log(`Mes restaurado desde localStorage: ${mesGuardado}`);
+    }
 
     // Verificar si hay credenciales en la URL (después de la autenticación de Google)
     const urlParams = new URLSearchParams(window.location.search);
@@ -28,6 +37,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (credentials) {
         // Limpiar la URL
         window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Restaurar el mes seleccionado antes de la sincronización
+        const mesGuardado = localStorage.getItem('mesSeleccionado');
+        if (mesGuardado) {
+            mesActual = mesGuardado;
+            document.getElementById('mes').value = mesGuardado;
+            console.log(`Mes restaurado después de autenticación: ${mesGuardado}`);
+        }
 
         // Sincronizar correos con las credenciales obtenidas
         try {
@@ -105,6 +122,13 @@ function toggleMenu() {
 function cargarInquilinos() {
     // MODIFICACIÓN: Añadir timestamp para evitar caché
     const timestamp = new Date().getTime();
+    
+    // Mostrar indicador de carga pero mantener la tabla visible
+    const tbody = document.getElementById('inquilinos-body');
+    if (tbody && tbody.innerHTML === '') {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando datos...</td></tr>';
+    }
+    
     fetch(`/api/inquilinos/?t=${timestamp}`)
         .then(response => response.json())
         .then(data => {
@@ -115,6 +139,10 @@ function cargarInquilinos() {
         })
         .catch(error => {
             console.error('Error al cargar socios:', error);
+            // Si hay error, mostrar mensaje en la tabla
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Error al cargar datos. Intente nuevamente.</td></tr>';
+            }
             // Si no hay conexión con el backend, usar datos de ejemplo para demostración
             cargarDatosEjemplo();
         });
@@ -136,6 +164,11 @@ function cargarDatosEjemplo() {
 // Renderizar tabla de inquilinos
 function renderizarTablaInquilinos() {
     const tbody = document.getElementById('inquilinos-body');
+    if (!tbody) {
+        console.error('No se encontró el elemento tbody');
+        return;
+    }
+    
     tbody.innerHTML = '';
 
     // MODIFICACIÓN: Siempre usar todos los inquilinos, no filtrar por mes
@@ -146,8 +179,9 @@ function renderizarTablaInquilinos() {
         // Si existe la columna para el mes y año seleccionados, usar ese valor
         let estadoPago = 'No pagado'; // Valor por defecto
         
-        // Intentar obtener el estado de pago para el mes y año seleccionados
-        const campoMesAño = `pago_${mesActual}_${añoActual}`;
+        // Formatear el mes con dos dígitos para la búsqueda
+        const mesDosDigitos = mesActual.padStart(2, '0');
+        const campoMesAño = `pago_${mesDosDigitos}_${añoActual}`;
         
         // MODIFICACIÓN: Añadir log para depuración
         console.log(`Inquilino ${inquilino.id} - ${inquilino.propietario}:`, inquilino);
@@ -190,8 +224,10 @@ function calcularTotales() {
         // Determinar si está pagado según el mes y año seleccionados
         let pagado = false;
         
-        // Intentar obtener el estado de pago para el mes y año seleccionados
-        const campoMesAño = `pago_${mesActual}_${añoActual}`;
+        // Formatear el mes con dos dígitos para la búsqueda
+        const mesDosDigitos = mesActual.padStart(2, '0');
+        const campoMesAño = `pago_${mesDosDigitos}_${añoActual}`;
+        
         if (inquilino[campoMesAño]) {
             pagado = inquilino[campoMesAño] === 'Pagado';
         }
@@ -218,6 +254,11 @@ function verPagos() {
 
 // Función para sincronizar correos
 function sincronizarCorreos() {
+    // MODIFICACIÓN: Guardar el mes seleccionado antes de sincronizar
+    mesSeleccionadoAntesDeSincronizar = document.getElementById('mes').value;
+    localStorage.setItem('mesSeleccionado', mesSeleccionadoAntesDeSincronizar);
+    console.log(`Mes guardado antes de sincronizar: ${mesSeleccionadoAntesDeSincronizar}`);
+    
     // Mostrar modal de autenticación de Google
     const modal = document.getElementById('modal-google-auth');
     modal.style.display = 'block';
@@ -242,10 +283,28 @@ function sincronizarCorreosAutenticado(credentials) {
     document.getElementById('sincronizar-correos-btn').textContent = 'Sincronizando...';
     document.getElementById('sincronizar-correos-btn').disabled = true;
 
-    // Obtener el mes seleccionado
-    const mesSeleccionado = document.getElementById('mes').value;
+    // MODIFICACIÓN: Recuperar el mes seleccionado antes de sincronizar
+    const mesSeleccionado = localStorage.getItem('mesSeleccionado') || document.getElementById('mes').value;
+    mesActual = mesSeleccionado;
+    document.getElementById('mes').value = mesSeleccionado;
+    
+    console.log(`Sincronizando con mes: ${mesSeleccionado}, año: ${añoActual}`);
 
-    // MODIFICACIÓN: Incluir el año en la sincronización
+    // MODIFICACIÓN: Mantener la tabla visible durante la sincronización
+    const tbody = document.getElementById('inquilinos-body');
+    if (tbody) {
+        // Añadir indicador de carga pero mantener la tabla
+        const filasCargando = Array.from(tbody.querySelectorAll('tr')).map(() => 
+            '<tr><td colspan="6" style="text-align: center; opacity: 0.5;">Sincronizando...</td></tr>'
+        ).join('');
+        
+        if (filasCargando) {
+            tbody.innerHTML = filasCargando;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Sincronizando...</td></tr>';
+        }
+    }
+
     // Llamar a la API para sincronizar correos
     fetch('/api/sync/emails', {
         method: 'POST',
@@ -276,22 +335,31 @@ function sincronizarCorreosAutenticado(credentials) {
         document.getElementById('sincronizar-correos-btn').textContent = 'Sincronizar Correos';
         document.getElementById('sincronizar-correos-btn').disabled = false;
         
-        // MODIFICACIÓN: Esperar un momento para que la base de datos se actualice completamente
-        setTimeout(() => {
-            // Recargar inquilinos para reflejar cambios con un timestamp para evitar caché
-            const timestamp = new Date().getTime();
-            fetch(`/api/inquilinos/?t=${timestamp}`)
-                .then(response => response.json())
-                .then(data => {
-                    inquilinos = data;
-                    console.log('Datos recargados después de sincronización:', inquilinos);
-                    renderizarTablaInquilinos();
-                    calcularTotales();
-                })
-                .catch(error => {
-                    console.error('Error al recargar datos después de sincronización:', error);
-                });
-        }, 1000); // Esperar 1 segundo
+        // MODIFICACIÓN: Recargar inmediatamente los datos actualizados
+        const timestamp = new Date().getTime();
+        fetch(`/api/inquilinos/?t=${timestamp}`)
+            .then(response => response.json())
+            .then(data => {
+                inquilinos = data;
+                console.log('Datos recargados después de sincronización:', inquilinos);
+                
+                // Asegurar que el mes seleccionado se mantenga
+                mesActual = mesSeleccionado;
+                document.getElementById('mes').value = mesSeleccionado;
+                
+                // Renderizar la tabla con los datos actualizados
+                renderizarTablaInquilinos();
+                calcularTotales();
+                
+                console.log(`Tabla actualizada para el mes: ${mesActual}`);
+            })
+            .catch(error => {
+                console.error('Error al recargar datos después de sincronización:', error);
+                
+                // En caso de error, intentar renderizar con los datos existentes
+                renderizarTablaInquilinos();
+                calcularTotales();
+            });
     })
     .catch(error => {
         console.error('Error en sincronización:', error);
@@ -300,6 +368,9 @@ function sincronizarCorreosAutenticado(credentials) {
         // Restaurar botón
         document.getElementById('sincronizar-correos-btn').textContent = 'Sincronizar Correos';
         document.getElementById('sincronizar-correos-btn').disabled = false;
+        
+        // Recargar la tabla en caso de error
+        cargarInquilinos();
     });
 }
 
@@ -309,7 +380,25 @@ function cambiarMes() {
     const mesAnterior = mesActual;
     mesActual = mesSeleccionado;
     
+    // Guardar el mes seleccionado en localStorage
+    localStorage.setItem('mesSeleccionado', mesSeleccionado);
+    
     console.log(`Cambiando mes de ${mesAnterior} a ${mesActual}`);
+    
+    // MODIFICACIÓN: Mantener la tabla visible durante la carga
+    const tbody = document.getElementById('inquilinos-body');
+    if (tbody) {
+        // Añadir indicador de carga pero mantener la estructura de la tabla
+        const filasCargando = Array.from(tbody.querySelectorAll('tr')).map(() => 
+            '<tr><td colspan="6" style="text-align: center; opacity: 0.5;">Actualizando...</td></tr>'
+        ).join('');
+        
+        if (filasCargando) {
+            tbody.innerHTML = filasCargando;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Actualizando...</td></tr>';
+        }
+    }
     
     // MODIFICACIÓN: Recargar los datos al cambiar de mes para asegurar datos actualizados
     const timestamp = new Date().getTime();
@@ -318,10 +407,6 @@ function cambiarMes() {
         .then(data => {
             inquilinos = data;
             console.log('Datos recargados al cambiar mes:', inquilinos);
-            
-            // Limpiar completamente la tabla antes de volver a renderizarla
-            const tbody = document.getElementById('inquilinos-body');
-            tbody.innerHTML = '';
             
             // Renderizar la tabla con los datos actualizados
             renderizarTablaInquilinos();
