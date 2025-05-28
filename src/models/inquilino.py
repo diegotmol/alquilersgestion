@@ -1,5 +1,6 @@
 from src.models.database import db
 from datetime import datetime
+from sqlalchemy import inspect
 
 class Inquilino(db.Model):
     __tablename__ = 'inquilinos'
@@ -25,8 +26,17 @@ class Inquilino(db.Model):
         }
         
         # Añadir dinámicamente todas las columnas de pagos mensuales
-        for key, value in self.__dict__.items():
-            if key.startswith('pago_') and not key.startswith('_sa_'):
-                result[key] = value
+        # Obtener todas las columnas de la tabla
+        inspector = inspect(db.engine)
+        columnas = inspector.get_columns('inquilinos')
+        
+        # Añadir columnas dinámicas de pagos
+        for columna in columnas:
+            nombre_columna = columna['name']
+            if nombre_columna.startswith('pago_'):
+                # Usar getattr para acceder al valor de la columna dinámica
+                # Si la columna no existe en el objeto, devuelve None
+                valor = getattr(self, nombre_columna, None)
+                result[nombre_columna] = valor
         
         return result
