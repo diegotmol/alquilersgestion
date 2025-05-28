@@ -39,7 +39,15 @@ class SyncService:
         try:
             # Log de inicio de sincronización
             logger.info("==================== INICIO DE SINCRONIZACIÓN ====================")
-            logger.info(f"Parámetros: mes={mes}, año={año}")
+            logger.info(f"Parámetros originales: mes={mes}, año={año}")
+            
+            # CORRECCIÓN: Normalizar el mes a formato de dos dígitos
+            if mes and mes != 'todos':
+                try:
+                    mes = f"{int(mes):02d}"
+                    logger.info(f"Mes normalizado para comparación: {mes}")
+                except ValueError:
+                    logger.warning(f"Formato de mes inválido: {mes}, se usará sin normalizar")
             
             # Modificar la consulta para buscar por remitente en lugar de asunto
             query = "from:serviciodetransferencias@bancochile.cl"
@@ -67,6 +75,9 @@ class SyncService:
                             
                             logger.info(f"Correo recibido en fecha: {fecha_recepcion}, mes: {mes_recepcion}")
                             
+                            # CORRECCIÓN: Mostrar detalles de la comparación para depuración
+                            logger.info(f"Comparando mes de recepción '{mes_recepcion}' con mes seleccionado '{mes}'")
+                            
                             # Filtrar por mes de recepción
                             if mes_recepcion == mes:
                                 logger.info(f"Correo coincide con el mes seleccionado: {mes}")
@@ -80,6 +91,10 @@ class SyncService:
                     if transfer_data and 'mes' in transfer_data:
                         mes_correo = f"{transfer_data['mes']:02d}"
                         logger.info(f"Usando fecha de transferencia, mes: {mes_correo}")
+                        
+                        # CORRECCIÓN: Mostrar detalles de la comparación para depuración
+                        logger.info(f"Comparando mes del correo '{mes_correo}' con mes seleccionado '{mes}' (tipos: {type(mes_correo)}, {type(mes)})")
+                        
                         if mes_correo == mes:
                             logger.info(f"Correo coincide con el mes seleccionado por fecha de transferencia: {mes}")
                             emails_filtrados.append(email)
@@ -278,7 +293,16 @@ class SyncService:
             else:
                 # Si no hay fecha en la transferencia, usar el mes y año seleccionados
                 # o el mes y año actuales como respaldo
-                mes = int(mes_seleccionado) if mes_seleccionado and mes_seleccionado != 'todos' else datetime.now().month
+                
+                # CORRECCIÓN: Normalizar el mes seleccionado
+                if mes_seleccionado and mes_seleccionado != 'todos':
+                    try:
+                        mes = int(mes_seleccionado)
+                    except ValueError:
+                        mes = datetime.now().month
+                else:
+                    mes = datetime.now().month
+                
                 año = int(año_seleccionado) if año_seleccionado else datetime.now().year
                 logger.info(f"Usando fecha seleccionada/actual: {mes}/{año}")
             
@@ -321,69 +345,15 @@ class SyncService:
                 logger.info(f"ACTUALIZACIÓN EXITOSA: Estado de pago actualizado para {inquilino_encontrado.propietario} en columna {columna}")
                 logger.info("==================== FIN DE MATCHING (EXITOSO) ====================")
                 return True
-                
             except SQLAlchemyError as e:
                 logger.error(f"Error al actualizar estado de pago: {str(e)}")
                 db.session.rollback()
-                logger.info("==================== FIN DE MATCHING (ERROR) ====================")
                 return False
-                
         except Exception as e:
-            logger.error(f"Error en _actualizar_pago_inquilino: {str(e)}")
+            logger.error(f"Error en actualización de pago: {str(e)}")
             # Asegurar que cualquier transacción pendiente se revierta
             try:
                 db.session.rollback()
             except:
                 pass
-            
-            logger.info("==================== FIN DE MATCHING (ERROR) ====================")
             return False
-    
-    def get_last_sync(self):
-        """
-        Obtiene la fecha de la última sincronización.
-        
-        Returns:
-            dict: Información sobre la última sincronización
-        """
-        try:
-            # Buscar la configuración por clave
-            config = Configuracion.query.filter_by(clave="ultima_sincronizacion").first()
-            
-            if config and config.valor:
-                logger.info(f"Fecha de última sincronización encontrada: {config.valor}")
-                return {
-                    "success": True,
-                    "fecha_sincronizacion": config.valor
-                }
-                
-            logger.info("No se encontró fecha de última sincronización")
-            return {
-                "success": False,
-                "mensaje": "No hay registros de sincronización previa"
-            }
-        except Exception as e:
-            logger.error(f"Error al obtener última sincronización: {str(e)}")
-            # Asegurar que cualquier transacción pendiente se revierta
-            try:
-                db.session.rollback()
-            except:
-                pass
-            
-            raise
-    
-    def process_auth_callback(self, code):
-        """
-        Procesa el callback de autorización de OAuth2 con Gmail.
-        
-        Args:
-            code (str): Código de autorización
-            
-        Returns:
-            dict: Credenciales de acceso
-        """
-        try:
-            return self.gmail_service.get_token(code)
-        except Exception as e:
-            logger.error(f"Error en callback de autorización: {str(e)}")
-            raise
