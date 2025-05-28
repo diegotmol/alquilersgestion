@@ -376,13 +376,11 @@ function sincronizarCorreosAutenticado(credentials) {
     });
 }
 
-// Cambiar mes con comparación flexible integrada
+// Cambiar mes
 function cambiarMes() {
     const mesSeleccionado = document.getElementById('mes').value;
     const mesAnterior = mesActual;
     mesActual = mesSeleccionado;
-    
-    console.log(`CAMBIO DE MES: de ${mesAnterior} a ${mesActual}`);
     
     // Guardar el mes seleccionado en localStorage
     localStorage.setItem('mesSeleccionado', mesSeleccionado);
@@ -390,7 +388,16 @@ function cambiarMes() {
     // Mantener la tabla visible durante la carga
     const tbody = document.getElementById('inquilinos-body');
     if (tbody) {
-        // Código para mostrar "Actualizando..."
+        // Añadir indicador de carga pero mantener la estructura de la tabla
+        const filasCargando = Array.from(tbody.querySelectorAll('tr')).map(() => 
+            '<tr><td colspan="6" style="text-align: center; opacity: 0.5;">Actualizando...</td></tr>'
+        ).join('');
+        
+        if (filasCargando) {
+            tbody.innerHTML = filasCargando;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Actualizando...</td></tr>';
+        }
     }
     
     // Recargar los datos al cambiar de mes para asegurar datos actualizados
@@ -398,32 +405,14 @@ function cambiarMes() {
     fetch(`/api/inquilinos/?t=${timestamp}`)
         .then(response => response.json())
         .then(data => {
-            console.log(`Datos recibidos: ${data.length} inquilinos`);
-            
-            // IMPORTANTE: Preprocesar los datos para normalizar estados de pago
-            // antes de asignarlos a la variable global inquilinos
-            const mesDosDigitos = mesActual.toString().padStart(2, '0');
-            const campoMesAño = `pago_${mesDosDigitos}_${añoActual}`;
-            
-            data.forEach(inquilino => {
-                // Verificar y normalizar el estado de pago con comparación flexible
-                if (inquilino[campoMesAño] && 
-                    inquilino[campoMesAño].toString().trim().toLowerCase() === 'pagado') {
-                    // Normalizar a "Pagado" con P mayúscula
-                    inquilino[campoMesAño] = 'Pagado';
-                    console.log(`Normalizado ${inquilino.propietario}: ${campoMesAño} = Pagado`);
-                }
-            });
-            
-            // Ahora asignar los datos normalizados
             inquilinos = data;
             
-            // Renderizar la tabla con los datos actualizados y normalizados
+            // Renderizar la tabla con los datos actualizados
             renderizarTablaInquilinos();
             calcularTotales();
         })
         .catch(error => {
-            console.error(`Error al recargar datos al cambiar mes: ${error}`);
+            console.error('Error al recargar datos al cambiar mes:', error);
             
             // En caso de error, intentar renderizar con los datos existentes
             renderizarTablaInquilinos();
