@@ -1,6 +1,6 @@
 """
 Servicio para la sincronización de correos electrónicos y actualización de pagos mensuales.
-Versión final con filtrado por fecha de recepción y matching flexible por nombre y monto.
+Versión final con filtrado por fecha de recepción, matching flexible por nombre y monto, y logs detallados.
 """
 import logging
 import re
@@ -36,6 +36,10 @@ class SyncService:
             dict: Resultado de la sincronización
         """
         try:
+            # Log de inicio de sincronización
+            logger.info("==================== INICIO DE SINCRONIZACIÓN ====================")
+            logger.info(f"Parámetros: mes={mes}, año={año}")
+            
             # Modificar la consulta para buscar por remitente en lugar de asunto
             query = "from:serviciodetransferencias@bancochile.cl"
             
@@ -84,16 +88,24 @@ class SyncService:
             
             # Procesar cada correo para actualizar pagos
             pagos_actualizados = 0
-            for email in emails:
+            for i, email in enumerate(emails):
+                logger.info(f"==================== PROCESANDO CORREO {i+1}/{len(emails)} ====================")
+                
                 # Parsear el correo para extraer información
                 transfer_data = self.email_parser.parse_banco_chile_email(email)
-                logger.info(f"Datos extraídos del correo: {transfer_data}")
                 
                 if transfer_data:
+                    logger.info(f"Datos extraídos del correo: {transfer_data}")
+                    
                     # Actualizar el estado de pago del inquilino correspondiente
                     actualizado = self._actualizar_pago_inquilino(transfer_data, mes, año)
                     if actualizado:
                         pagos_actualizados += 1
+                        logger.info(f"Pago actualizado correctamente para este correo")
+                    else:
+                        logger.warning(f"No se pudo actualizar el pago para este correo")
+                else:
+                    logger.warning(f"No se pudieron extraer datos de este correo")
             
             # Actualizar fecha de última sincronización - USAR UTC EXPLÍCITAMENTE
             # Usando pytz en lugar de datetime.timezone
@@ -121,6 +133,7 @@ class SyncService:
             db.session.commit()
             
             logger.info(f"Fecha de última sincronización guardada: {config.valor}")
+            logger.info("==================== FIN DE SINCRONIZACIÓN ====================")
             
             return {
                 "success": True,
@@ -178,6 +191,8 @@ class SyncService:
             bool: True si se actualizó algún pago, False en caso contrario
         """
         try:
+            logger.info("==================== INICIANDO MATCHING DE INQUILINO ====================")
+            
             # Verificar que tenemos los datos necesarios
             if not transfer_data:
                 logger.warning("Datos de transferencia incompletos, no se puede actualizar pago")
@@ -192,8 +207,14 @@ class SyncService:
                 return False
             
             # Buscar inquilino por nombre con comparación más robusta
+            logger.info("Cargando todos los inquilinos de la base de datos para matching")
             inquilinos = Inquilino.query.all()
             logger.info(f"Total de socios en base de datos: {len(inquilinos)}")
+            
+            # Log de todos los inquilinos disponibles para matching
+            inquilinos_nombres = [i.propietario for i in inquilinos]
+            logger.info(f"Inquilinos disponibles para matching: {inquilinos_nombres}")
+            
             inquilino_encontrado = None
             
             # Normalizar el emisor
@@ -204,6 +225,7 @@ class SyncService:
             monto_transferencia = transfer_data.get('monto', 0)
             logger.info(f"Monto de la transferencia: {monto_transferencia}")
             
+            logger.info("Iniciando proceso de comparación para matching")
             # Intentar coincidencia por nombre normalizado (flexible)
             for inquilino in inquilinos:
                 nombre_inquilino = inquilino.propietario
@@ -225,8 +247,11 @@ class SyncService:
                         logger.warning(f"El monto de la transferencia ({monto_transferencia}) no coincide con el monto del socio ({inquilino.monto})")
             
             if not inquilino_encontrado:
-                logger.warning(f"No se encontró socio para el emisor: '{emisor}' con monto: {monto_transferencia}")
+                logger.warning(f"NO SE ENCONTRÓ MATCH para el emisor: '{emisor}' con monto: {monto_transferencia}")
+                logger.info("==================== FIN DE MATCHING (SIN ÉXITO) ====================")
                 return False
+            
+            logger.info(f"MATCH EXITOSO: Emisor '{emisor}' coincide con inquilino '{inquilino_encontrado.propietario}' (ID: {inquilino_encontrado.id})")
             
             # Determinar el mes y año para la columna a actualizar
             if 'fecha' in transfer_data and isinstance(transfer_data['fecha'], datetime):
@@ -246,7 +271,7 @@ class SyncService:
             
             # Nombre de la columna a actualizar
             columna = f"pago_{mes_str}_{año}"
-            logger.info(f"Intentando actualizar columna: {columna}")
+            logger.info(f"Columna a actualizar: '{columna}'")
             
             # Verificar si la columna existe
             try:
@@ -254,35 +279,41 @@ class SyncService:
                 # Primero verificar si la columna existe
                 inspector = db.inspect(db.engine)
                 columnas_existentes = [col['name'] for col in inspector.get_columns('inquilinos')]
-                logger.info(f"Columnas existentes: {columnas_existentes}")
+                
+                logger.info(f"Columnas existentes en la tabla: {columnas_existentes}")
                 
                 if columna not in columnas_existentes:
-                    logger.warning(f"La columna {columna} no existe en la tabla inquilinos")
+                    logger.warning(f"La columna '{columna}' no existe en la tabla inquilinos")
                     # Intentar crear la columna si no existe
                     try:
+                        logger.info(f"Intentando crear la columna '{columna}'")
                         query = text(f"ALTER TABLE inquilinos ADD COLUMN {columna} VARCHAR(20) NOT NULL DEFAULT 'No pagado'")
                         db.session.execute(query)
                         db.session.commit()
-                        logger.info(f"Columna {columna} creada correctamente")
+                        logger.info(f"Columna '{columna}' creada correctamente")
                     except Exception as e:
-                        logger.error(f"Error al crear la columna {columna}: {str(e)}")
+                        logger.error(f"Error al crear la columna '{columna}': {str(e)}")
                         return False
                 
                 # Actualizar el estado de pago en la columna correspondiente
+                logger.info(f"Actualizando columna '{columna}' a 'Pagado' para inquilino ID: {inquilino_encontrado.id}")
                 query = text(f"UPDATE inquilinos SET {columna} = 'Pagado' WHERE id = :id")
                 db.session.execute(query, {"id": inquilino_encontrado.id})
                 db.session.commit()
                 
-                logger.info(f"Actualizado estado de pago para {inquilino_encontrado.propietario} en columna {columna}")
+                logger.info(f"ACTUALIZACIÓN EXITOSA: Estado de pago actualizado para {inquilino_encontrado.propietario} en columna {columna}")
+                logger.info("==================== FIN DE MATCHING (EXITOSO) ====================")
                 return True
                 
             except Exception as e:
                 logger.error(f"Error al actualizar estado de pago: {str(e)}")
                 db.session.rollback()
+                logger.info("==================== FIN DE MATCHING (ERROR) ====================")
                 return False
                 
         except Exception as e:
             logger.error(f"Error en _actualizar_pago_inquilino: {str(e)}")
+            logger.info("==================== FIN DE MATCHING (ERROR) ====================")
             return False
     
     def get_last_sync(self):
