@@ -470,7 +470,7 @@ function cambiarMes() {
     const selector = document.getElementById('mes');
     selector.blur();
     setTimeout(() => selector.focus(), 100);
-}
+
 
 // Mostrar modal para añadir inquilino
 function mostrarModalAnadirInquilino() {
