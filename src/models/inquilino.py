@@ -1,6 +1,5 @@
 from src.models.database import db
 from datetime import datetime
-from sqlalchemy import inspect, text
 
 class Inquilino(db.Model):
     __tablename__ = 'inquilinos'
@@ -13,36 +12,22 @@ class Inquilino(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     ultima_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-def to_dict(self):
-    # Versión base con campos estándar
-    result = {
-        'id': self.id,
-        'propietario': self.propietario,
-        'propiedad': self.propiedad,
-        'telefono': self.telefono,
-        'monto': self.monto,
-        'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S'),
-        'ultima_actualizacion': self.ultima_actualizacion.strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # Añadir todas las columnas dinámicas de pagos
-    inspector = inspect(db.engine)
-    columnas = [col['name'] for col in inspector.get_columns('inquilinos')]
-    
-    # Consulta SQL directa para obtener todas las columnas del inquilino
-    sql = text(f"SELECT * FROM inquilinos WHERE id = {self.id}")
-    row = db.session.execute(sql).fetchone()
-    
-    if row:
-        # Convertir la tupla a un diccionario
-        row_dict = dict(zip([col for col in columnas], row))
+    def to_dict(self):
+        # Versión base con campos estándar
+        result = {
+            'id': self.id,
+            'propietario': self.propietario,
+            'propiedad': self.propiedad,
+            'telefono': self.telefono,
+            'monto': self.monto,
+            'fecha_creacion': self.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S'),
+            'ultima_actualizacion': self.ultima_actualizacion.strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        # Añadir todas las columnas que empiezan con 'pago_'
-        for col in columnas:
-            if col.startswith('pago_'):
-                result[col] = row_dict[col]
-                print(f"Añadiendo columna {col} con valor {row_dict[col]}")
-    
-    return result
-
-
+        # Enfoque seguro: usar __dict__ directamente
+        for key, value in self.__dict__.items():
+            # Solo incluir columnas de pagos y evitar atributos internos de SQLAlchemy
+            if isinstance(key, str) and key.startswith('pago_') and not key.startswith('_'):
+                result[key] = value
+        
+        return result
