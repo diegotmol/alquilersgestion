@@ -376,13 +376,52 @@ function sincronizarCorreosAutenticado(credentials) {
     });
 }
 
-// Cambiar mes
+// Función para cambiar el mes seleccionado
 function cambiarMes() {
     const mesSeleccionado = document.getElementById('mes').value;
     const mesAnterior = mesActual;
-    mesActual = mesSeleccionado;
     
-    // Guardar el mes seleccionado en localStorage
+    // Extraer mes y año del valor seleccionado
+    let mesExtraido = mesSeleccionado;
+    let añoExtraido = null;
+    
+    // Detectar diferentes formatos
+    if (mesSeleccionado.includes('-')) {
+        // Formato "MM-YYYY"
+        const partes = mesSeleccionado.split('-');
+        if (partes.length === 2) {
+            mesExtraido = partes[0];
+            añoExtraido = parseInt(partes[1]);
+        }
+    } else if (/\d{4}$/.test(mesSeleccionado)) {
+        // Formato "Mes YYYY" (ej: "Enero 2025")
+        const añoMatch = mesSeleccionado.match(/\d{4}$/);
+        if (añoMatch) {
+            añoExtraido = parseInt(añoMatch[0]);
+            // Extraer solo el mes (todo excepto el año y espacios al final)
+            mesExtraido = mesSeleccionado.replace(/\s*\d{4}$/, '');
+            
+            // Convertir nombre de mes a número si es necesario
+            const mesesNombres = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            
+            const indice = mesesNombres.findIndex(m => m.toLowerCase() === mesExtraido.toLowerCase());
+            if (indice !== -1) {
+                mesExtraido = (indice + 1).toString();
+            }
+        }
+    }
+    
+    // Actualizar variables globales
+    mesActual = mesExtraido;
+    if (añoExtraido !== null) {
+        añoActual = añoExtraido;
+    }
+    
+    // Log para depuración
+    console.log(`Mes cambiado a: ${mesActual}, Año: ${añoActual}`);
+    
+    // Guardar el mes seleccionado en localStorage (mantener comportamiento original)
     localStorage.setItem('mesSeleccionado', mesSeleccionado);
     
     // Mantener la tabla visible durante la carga
@@ -400,8 +439,9 @@ function cambiarMes() {
         }
     }
     
-    // Recargar los datos al cambiar de mes para asegurar datos actualizados
+    // Añadir timestamp para evitar caché
     const timestamp = new Date().getTime();
+    
     fetch(`/api/inquilinos/?t=${timestamp}`)
         .then(response => response.json())
         .then(data => {
@@ -412,12 +452,19 @@ function cambiarMes() {
             calcularTotales();
         })
         .catch(error => {
-            console.error('Error al recargar datos al cambiar mes:', error);
+            console.error('Error al cambiar mes:', error);
+            alert('Error al cargar datos. Por favor, intente nuevamente.');
             
-            // En caso de error, intentar renderizar con los datos existentes
+            // Restaurar mes anterior en caso de error
+            mesActual = mesAnterior;
+            document.getElementById('mes').value = mesAnterior;
+            
+            // Intentar renderizar con los datos existentes
             renderizarTablaInquilinos();
             calcularTotales();
         });
+}
+
     
     // Actualizar visualmente el selector para confirmar el cambio
     const selector = document.getElementById('mes');
